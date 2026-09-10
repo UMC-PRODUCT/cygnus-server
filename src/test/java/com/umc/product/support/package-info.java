@@ -5,7 +5,7 @@
  * <ul>
  *   <li>{@link com.umc.product.support.IntegrationTestSupport} - 통합 테스트 베이스 클래스</li>
  *   <li>{@link com.umc.product.support.TestContainersConfig} - PostgreSQL/PostGIS Testcontainer 구성</li>
- *   <li>{@link com.umc.product.support.DocumentationTest} - REST Docs(MockMvc 슬라이스) 테스트 베이스</li>
+ *   <li>{@link com.umc.product.support.ControllerTestSupport} - MockMvc 슬라이스 테스트 베이스</li>
  *   <li>{@code com.umc.product.support.isolation} - 테스트 간 DB 격리(@DatabaseIsolation TRUNCATE)</li>
  *   <li>{@code com.umc.product.support.fixture} - 도메인별 영속화 Fixture</li>
  * </ul>

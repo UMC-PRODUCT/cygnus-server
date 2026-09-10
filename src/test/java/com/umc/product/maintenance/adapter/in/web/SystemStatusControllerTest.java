@@ -5,6 +5,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
+import java.util.EnumSet;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.maintenance.application.port.in.query.GetMaintenanceStatusUseCase;
@@ -12,23 +24,10 @@ import com.umc.product.maintenance.application.port.in.query.dto.MaintenanceStat
 import com.umc.product.maintenance.application.port.in.query.dto.MaintenanceWindowInfo;
 import com.umc.product.maintenance.domain.MaintenanceDomain;
 import com.umc.product.maintenance.domain.MaintenanceScope;
-import com.umc.product.support.RestDocsConfig;
-import java.time.Instant;
-import java.util.EnumSet;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = SystemStatusController.class)
-@Import({JacksonConfig.class, RestDocsConfig.class})
+@Import(JacksonConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
-@AutoConfigureRestDocs
 @DisplayName("SystemStatusController")
 class SystemStatusControllerTest {
 

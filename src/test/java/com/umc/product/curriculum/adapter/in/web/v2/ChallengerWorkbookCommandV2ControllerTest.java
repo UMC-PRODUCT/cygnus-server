@@ -3,8 +3,6 @@ package com.umc.product.curriculum.adapter.in.web.v2;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doThrow;
-import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
-import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -13,11 +11,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.restdocs.mockmvc.RestDocumentationResultHandler;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -30,20 +26,15 @@ import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = ChallengerWorkbookCommandV2Controller.class)
-@Import({JacksonConfig.class, RestDocsConfig.class})
+@Import(JacksonConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
-@AutoConfigureRestDocs
 @DisplayName("ChallengerWorkbookCommandV2Controller")
 class ChallengerWorkbookCommandV2ControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @Autowired
-    private RestDocumentationResultHandler restDocsHandler;
 
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
@@ -71,10 +62,7 @@ class ChallengerWorkbookCommandV2ControllerTest {
 
         mockMvc.perform(delete("/api/v2/curriculums/challenger-workbooks/{id}", 10L))
             .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.code").value(CurriculumErrorCode.WORKBOOK_HAS_SUBMISSIONS.getCode()))
-            .andDo(restDocsHandler.document(pathParameters(
-                parameterWithName("id").description("삭제할 챌린저 워크북 ID")
-            )));
+            .andExpect(jsonPath("$.code").value(CurriculumErrorCode.WORKBOOK_HAS_SUBMISSIONS.getCode()));
 
         then(manageChallengerWorkbookUseCase).should().delete(any());
     }

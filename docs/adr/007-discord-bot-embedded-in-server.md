@@ -9,7 +9,7 @@ Proposed
 2026-05-08 기준, UMC PRODUCT 서버는 Discord 와 다음 두 경로로 통신한다.
 
 - [DiscordWebhookAdapter](../../src/main/java/com/umc/product/notification/adapter/out/external/webhook/DiscordWebhookAdapter.java) — 운영 알람용 webhook 발송 (`SLACK / DISCORD / TELEGRAM` 공용 인터페이스).
-- [DiscordMentionWebhookAdapter](../../src/main/java/com/umc/product/figma/adapter/out/external/DiscordMentionWebhookAdapter.java) — Figma 댓글 → Discord embed 묶음 발송 (ADR-003).
+- [DiscordMentionWebhookAdapter](../../src/main/java/com/umc/product/figma/adapter/out/external/DiscordMentionWebhookAdapter.java) — Figma 댓글 → Discord embed 묶음 발송.
 
 두 어댑터 모두 **Discord webhook URL 단방향 POST** 다. 즉 서버는 Discord 로 메시지를 "보내는" 채널만 갖고 있고, Discord 측 이벤트(슬래시 커맨드, 멘션 응답, reaction, DM, 채널 가입 등) 를 "받는" 채널이 없다. 이 구조에서 운영 / 기획 측에 다음 한계가 누적되어 있다.
 
@@ -249,7 +249,7 @@ JDA 보다 가벼운 Discord 라이브러리.
 
 - bot 가용성에 운영 알람 가용성이 묶인다 (bot 다운 시 알람도 끊김 — 가장 알람이 필요한 순간에 끊긴다는 모순).
 - bot rate limit (메시지 / 채널 / 글로벌) 이 webhook 보다 엄격할 수 있다.
-- ADR-003 에서 정의한 도메인별 webhook URL / Discord embed 포맷 자산을 재구성해야 한다.
+- 기존 도메인별 webhook URL / Discord embed 포맷 자산을 재구성해야 한다.
 
 선택하지 않은 이유:
 운영 알람의 가용성 분리가 더 중요하다. 본 ADR 은 "양방향 채널 도입" 만 다루고, 발송 경로 통합은 별도 의사결정으로 분리한다.
@@ -546,7 +546,7 @@ bot 코드 추가 전, 의존성 / 환경변수 / 공용 enum 을 정리한다. 
 
 본 ADR 범위 밖. 별도 의사결정으로 분리.
 
-- `/figma-digest from to` 슬래시 커맨드 (ADR-003 의 digest API 를 Discord 에서 직접 호출).
+- `/figma-digest from to` 슬래시 커맨드 (digest API를 Discord에서 직접 호출).
 - 멀티 인스턴스 환경에서 자동 leader-election (DB lock / Redis lock).
 - Discord user ↔ `Member` 매핑 테이블 (`discord_user_member_link`) 도입 + 권한 기반 슬래시 커맨드 분기.
 - Privileged intents 신청 + 메시지 / reaction 기반 양방향 시나리오.
@@ -556,7 +556,6 @@ bot 코드 추가 전, 의존성 / 환경변수 / 공용 enum 을 정리한다. 
 ## References
 
 - 관련 ADR
-    - [ADR-003: Figma 댓글 Discord 포워딩](003-figma-comment-discord-forwarder.md) — 발송 경로 자산 / Discord embed 포맷 / 라우팅 도메인 구조의 선행 결정. 본 ADR 의 발송 경로 유지 결정의 전제.
     - [ADR-006: 문의사항 도메인 + WebSocket + STOMP](006-inquiry-domain-with-websocket-stomp.md) — 한 프로세스 안에 두 종류의 영구 WebSocket 연결이 공존하는 운영 컨텍스트.
 - 기존 코드
     - [DiscordWebhookAdapter](../../src/main/java/com/umc/product/notification/adapter/out/external/webhook/DiscordWebhookAdapter.java)

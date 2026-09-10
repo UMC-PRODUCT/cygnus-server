@@ -1,0 +1,41 @@
+{
+  "gisu": {
+    "generation": 99,
+    "startAt": "2027-03-01T00:00:00+09:00",
+    "endAt": "2027-08-31T23:59:59+09:00"
+  },
+  "chapters": [
+    {"name": "예시 지부", "schoolIds": [1]}
+  ],
+  "curricula": [
+    {
+      "track": "WEB_PRODUCT_ENGINEER",
+      "title": "웹 프로덕트 엔지니어 커리큘럼",
+      "weeks": [
+        {
+          "weekNo": 1,
+          "isExtra": false,
+          "title": "개발 환경과 첫 서비스",
+          "startsAt": "2027-03-01T00:00:00+09:00",
+          "endsAt": "2027-03-07T23:59:59+09:00",
+          "workbooks": [
+            {
+              "title": "첫 서비스 만들기",
+              "description": "운영 커리큘럼에 맞게 내용을 작성하세요.",
+              "content": "# 학습 목표\n로컬에서 첫 서비스를 실행합니다.",
+              "type": "MAIN",
+              "missions": [
+                {
+                  "title": "실행 결과 제출",
+                  "description": "실행 결과와 저장소 링크를 제출하세요.",
+                  "missionType": "LINK",
+                  "isNecessary": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

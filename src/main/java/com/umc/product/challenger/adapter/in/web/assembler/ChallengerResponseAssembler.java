@@ -1,5 +1,13 @@
 package com.umc.product.challenger.adapter.in.web.assembler;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Component;
+
 import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerInfoResponse;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
@@ -9,13 +17,8 @@ import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * 챌린저 ID를 기반으로 회원 및 기수 정보를 포함한 응답 객체를 조립하는 헬퍼 컴포넌트입니다.
@@ -33,7 +36,8 @@ public class ChallengerResponseAssembler {
         ChallengerInfo challengerInfo = getChallengerUseCase.getById(challengerId);
         MemberInfo memberInfo = getMemberUseCase.getById(challengerInfo.memberId());
         GisuInfo gisuInfo = getGisuUseCase.getById(challengerInfo.gisuId());
-        ChapterInfo chapterInfo = getChapterUseCase.byGisuAndSchool(challengerInfo.gisuId(), memberInfo.schoolId());
+        ChapterInfo chapterInfo = getChapterUseCase.findByGisuAndSchool(challengerInfo.gisuId(), memberInfo.schoolId())
+            .orElse(null);
 
         return ChallengerInfoResponse.from(challengerInfo, memberInfo, gisuInfo, chapterInfo);
     }

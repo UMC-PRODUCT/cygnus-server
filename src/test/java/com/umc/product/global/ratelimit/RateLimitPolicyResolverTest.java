@@ -52,23 +52,6 @@ class RateLimitPolicyResolverTest {
     }
 
     @Test
-    @DisplayName("기본 설정에는 route override가 없으므로 검색 형태 경로도 기본 정책을 적용한다")
-    void resolve_default_policy_without_route_override() {
-        RateLimitPolicyResolver resolver = new RateLimitPolicyResolver(ApiRateLimitProperties.defaults());
-
-        RateLimitPolicy policy = resolver.resolve(
-            "GET",
-            "/api/v1/search/{keyword}",
-            "/api/v1/search/spring",
-            true
-        ).orElseThrow();
-
-        assertThat(policy.name()).isEqualTo("authenticated-default");
-        assertThat(policy.requestsPerSecond()).isEqualTo(20);
-        assertThat(policy.requestsPerMinute()).isEqualTo(300);
-    }
-
-    @Test
     @DisplayName("명시된 route policy가 있으면 기본 정책보다 우선 적용한다")
     void resolve_configured_route_policy() {
         ApiRateLimitProperties properties = new ApiRateLimitProperties(

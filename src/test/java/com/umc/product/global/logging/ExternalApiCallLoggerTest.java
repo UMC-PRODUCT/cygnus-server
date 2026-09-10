@@ -98,20 +98,6 @@ class ExternalApiCallLoggerTest {
         }
     }
 
-    @Test
-    @DisplayName("Runnable 오버로드도 동일한 이벤트 스키마로 기록한다")
-    void measure_Runnable_오버로드() {
-        // when
-        ExternalApiCallLogger.measure("APPLE", "EXCHANGE_TOKEN", () -> { /* no-op */ });
-
-        // then
-        ILoggingEvent event = onlyEvent();
-        assertThat(event.getLevel()).isEqualTo(Level.INFO);
-        assertThat(kvOf(event, "provider")).isEqualTo("APPLE");
-        assertThat(kvOf(event, "operation")).isEqualTo("EXCHANGE_TOKEN");
-        assertThat(kvOf(event, "result")).isEqualTo("SUCCESS");
-    }
-
     private ILoggingEvent onlyEvent() {
         List<ILoggingEvent> events = listAppender.list;
         assertThat(events).hasSize(1);

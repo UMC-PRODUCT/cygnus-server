@@ -19,6 +19,10 @@ public enum ChallengerTrack {
     private final String displayName;
     private final int sortOrder;
 
+    public boolean isBasic() {
+        return this != INFRA_PLUS;
+    }
+
     public static ChallengerTrack from(ChallengerPart part) {
         if (part == null || part == ChallengerPart.ADMIN) {
             throw new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_PART_NOT_FOUND);

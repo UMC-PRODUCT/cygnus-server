@@ -1,5 +1,4 @@
 [versions]
-asciidoctor = "4.0.5"
 aws = "2.40.12"
 bouncycastle = "1.78.1"
 bucket4j = "8.19.0"
@@ -27,7 +26,6 @@ spotless = "8.5.1"
 zxing = "3.5.4"
 
 [plugins]
-asciidoctor-jvm-convert = { id = "org.asciidoctor.jvm.convert", version.ref = "asciidoctor" }
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

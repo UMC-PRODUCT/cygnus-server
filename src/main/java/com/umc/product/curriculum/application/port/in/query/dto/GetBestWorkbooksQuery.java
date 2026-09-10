@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 
 /**
  * 베스트 워크북 목록 조회 쿼리
@@ -26,9 +27,17 @@ public record GetBestWorkbooksQuery(
     List<Long> weekNos,
     List<Long> studyGroupIds,
     int page,
-    int size
+    int size,
+    Set<ChallengerTrack> tracks
 ) {
     private static final int DEFAULT_SIZE = 20;
+
+    public GetBestWorkbooksQuery(
+        Long gisuId, Set<Long> schoolIds, Set<Long> memberIds, Set<ChallengerPart> parts,
+        List<Long> weekNos, List<Long> studyGroupIds, int page, int size
+    ) {
+        this(gisuId, schoolIds, memberIds, parts, weekNos, studyGroupIds, page, size, null);
+    }
 
     public GetBestWorkbooksQuery {
         if (page < 0) {
@@ -57,7 +66,13 @@ public record GetBestWorkbooksQuery(
 
     public GetBestWorkbooksQuery withMemberIds(Set<Long> memberIds) {
         return new GetBestWorkbooksQuery(
-            gisuId, schoolIds, memberIds, parts, weekNos, studyGroupIds, page, size
+            gisuId, schoolIds, memberIds, parts, weekNos, studyGroupIds, page, size, tracks
+        );
+    }
+
+    public GetBestWorkbooksQuery withTracks(Set<ChallengerTrack> tracks) {
+        return new GetBestWorkbooksQuery(
+            gisuId, schoolIds, memberIds, parts, weekNos, studyGroupIds, page, size, tracks
         );
     }
 }

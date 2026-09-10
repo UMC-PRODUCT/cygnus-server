@@ -3,7 +3,7 @@ import { check } from "k6";
 
 import { errorRate } from "./metrics.js";
 
-// BASE_URL 은 운영과 같은 HTTP 진입점인 ALB. run-umc-k6 가 -e BASE_URL 로 넘긴다.
+// BASE_URL 환경변수로 부하를 보낼 앱 주소를 지정한다.
 const BASE_URL = (__ENV.BASE_URL || "http://localhost:8080").replace(/\/+$/, "");
 
 function headers(token) {

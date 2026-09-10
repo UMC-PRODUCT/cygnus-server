@@ -6,7 +6,7 @@ Proposed
 
 ## Context
 
-ADR-003 (Amended 2026-05-07) 결정에 따라 Figma 댓글 → 서버 도메인 분류 라우팅이 도입되었고, 이를 위한 LLM 호출 추상은 별도 도메인 `com.umc.product.llm` 으로 분리되어 있다. 다만 본 ADR 작성 시점(2026-05-07)에는 `MockChatCompletionAdapter` 만 활성화된 상태로, candidates 중 하나를 무작위 반환할 뿐 실제 분류는 수행하지 않는다.
+2026-05-07 기준 Figma 댓글 → 서버 도메인 분류 라우팅이 도입되었고, 이를 위한 LLM 호출 추상은 별도 도메인 `com.umc.product.llm` 으로 분리되어 있다. 다만 본 ADR 작성 시점(2026-05-07)에는 `MockChatCompletionAdapter` 만 활성화된 상태로, candidates 중 하나를 무작위 반환할 뿐 실제 분류는 수행하지 않는다.
 
 운영 도입을 위해 다음 결정이 필요하다.
 
@@ -23,7 +23,7 @@ ADR-003 (Amended 2026-05-07) 결정에 따라 Figma 댓글 → 서버 도메인 
 - 호출량 추정: 활성 watched file 50개 × 신규 댓글 5건/일 평균 = sync 250건/일. preview / 운영진 트리거 포함 시 ~500건/일. 즉 일 100만 토큰을 한참 못 미치는 소규모.
 - 한국어 분류 정확도가 운영진 신뢰의 핵심. 어색한 매핑은 fallback 채널 누적으로 이어진다.
 - 본 시스템은 사용자 대면이 아닌 운영진 대면 도구이므로 분당 수십 호출 이상의 burst 는 발생하지 않는다 (스케줄러 5분 간격 + 운영진 수동 트리거).
-- 본 도메인의 인터페이스(`ChatCompletionPort`, `ChatCompleteCommand`, `ChatCompletionResult`)는 이미 정의되어 있고, 어댑터 구현체만 갈아끼우면 되는 구조다 (ADR-003 §7).
+- 본 도메인의 인터페이스(`ChatCompletionPort`, `ChatCompleteCommand`, `ChatCompletionResult`)는 이미 정의되어 있고, 어댑터 구현체만 갈아끼우면 되는 구조다.
 
 이 ADR이 결정해야 하는 사항은 다음과 같다.
 
@@ -210,7 +210,7 @@ Claude 모델로 분류를 수행한다.
 - Spring AI 의 auto-config / Micrometer 통합 덕분에 메트릭과 로그를 표준 방식으로 수집할 수 있다.
 - Mock 어댑터를 그대로 유지해 통합 테스트가 결정적(deterministic) 으로 동작한다.
 - Gemini 1.5 Flash 의 비용 구조 덕분에 일/월 비용이 ~$1 수준으로 운영 부담이 거의 없다.
-- 기존 ADR-003 이 정의한 `ChatCompletionPort` 추상이 그대로 유지되므로, figma 도메인 코드 변경 없이 LLM 어댑터만 추가된다.
+- 기존 `ChatCompletionPort` 추상이 그대로 유지되므로, figma 도메인 코드 변경 없이 LLM 어댑터만 추가된다.
 
 ### Negative
 
@@ -395,14 +395,8 @@ cardinality 가 위험 수준으로 커지지 않도록 maximumSize 한도를 �
     - `FigmaCommentDomainClassifier` 캐시 hit/miss 시나리오.
     - 통합 테스트는 `app.llm.provider=mock` 강제로 LLM 외부 호출 없이 figma 흐름 전체 검증.
 
-9. `docs: ADR-003 / 업무보고서를 실 LLM provider 운영 가이드로 갱신 (선택)`
-    - 운영 활성화 후 1~2주 모니터링 결과를 반영해 fallback 비율 / 평균 latency / 일 비용을 명시.
-    - 본 ADR-006 의 결정을 Accepted 로 전환.
-
 ## References
 
-- 관련 ADR
-    - [ADR-003: Figma 댓글 Discord 포워딩](003-figma-comment-discord-forwarder.md) — LLM 도메인 분리 결정의 기반
 - 코드
     - [ChatCompletionPort](../../src/main/java/com/umc/product/llm/application/port/out/ChatCompletionPort.java) — 본 ADR 의 결정이 구현되는 추상
     - [MockChatCompletionAdapter](../../src/main/java/com/umc/product/llm/adapter/out/external/MockChatCompletionAdapter.java) — 1차 도입 후에도 유지될 fallback/test 어댑터

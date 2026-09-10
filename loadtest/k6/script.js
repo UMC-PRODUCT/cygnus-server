@@ -72,7 +72,7 @@ if (!selected) {
   );
 }
 
-// options 는 init 단계에서 평가된다. RATE/DURATION 은 run-umc-k6 가 넘긴다.
+// options 는 init 단계에서 평가된다. RATE/DURATION 은 환경변수로 지정한다.
 // systemTags 에서 url/name 을 제외한다 — 쿼리스트링(memberId 등)이 URL 마다 달라
 // Prometheus 시리즈가 요청 수만큼 폭발한다(카디널리티). 시나리오 구분은 우리 scenario 태그로 충분.
 export const options = {
@@ -105,7 +105,7 @@ export default function (data) {
 }
 
 // 실행마다 요약을 파일로 남긴다 (JMeter 리포트처럼). 터미널 출력은 그대로 유지하고,
-// JSON 은 generator 의 ./out/ 에 쓰며 run-k6.sh 가 실행 직후 로컬(RUN_DIR)로 회수한다.
+// JSON 은 실행 디렉터리의 ./out/last-summary.json 에 쓴다.
 export function handleSummary(data) {
   return {
     stdout: textSummary(data, { indent: "  ", enableColors: true }),

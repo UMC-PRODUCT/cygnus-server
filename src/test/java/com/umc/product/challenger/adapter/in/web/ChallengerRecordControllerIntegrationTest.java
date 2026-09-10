@@ -1,9 +1,16 @@
 package com.umc.product.challenger.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -11,26 +18,39 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import com.umc.product.authorization.adapter.out.persistence.ChallengerRoleJpaRepository;
+import com.umc.product.challenger.adapter.in.web.assembler.ChallengerRecordResponseAssembler;
+import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordResponse;
 import com.umc.product.challenger.adapter.out.persistence.ChallengerJpaRepository;
 import com.umc.product.challenger.adapter.out.persistence.ChallengerRecordJpaRepository;
+import com.umc.product.challenger.application.port.in.command.ManageChallengerRecordUseCase;
+import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
+import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
 import com.umc.product.challenger.application.port.out.SaveChallengerPort;
 import com.umc.product.challenger.application.port.out.SaveChallengerRecordPort;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.challenger.domain.ChallengerRecord;
+import com.umc.product.challenger.domain.exception.ChallengerDomainException;
+import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.member.application.port.out.SaveMemberPort;
 import com.umc.product.member.domain.Member;
-import com.umc.product.organization.application.port.out.query.LoadGisuPort;
+import com.umc.product.organization.application.port.out.command.SaveGisuPort;
 import com.umc.product.organization.domain.Chapter;
 import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
 import com.umc.product.support.IntegrationTestSupport;
+import com.umc.product.support.concurrency.PostgreSqlTransactionRace;
+import com.umc.product.support.concurrency.PostgreSqlTransactionRace.TransactionCall;
 import com.umc.product.support.fixture.ChapterFixture;
 import com.umc.product.support.fixture.GisuFixture;
 import com.umc.product.support.fixture.SchoolFixture;
@@ -41,9 +61,6 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
 
     @Autowired
     private GisuFixture gisuFixture;
-
-    @Autowired
-    private LoadGisuPort loadGisuPort;
 
     @Autowired
     private ChapterFixture chapterFixture;
@@ -68,6 +85,21 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
 
     @Autowired
     private ChallengerRoleJpaRepository challengerRoleJpaRepository;
+
+    @Autowired
+    private ManageChallengerRecordUseCase manageChallengerRecordUseCase;
+
+    @Autowired
+    private ChallengerRecordResponseAssembler recordResponseAssembler;
+
+    @Autowired
+    private SaveGisuPort saveGisuPort;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @AfterEach
     void clearSecurityContext() {
@@ -199,9 +231,122 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
         assertThat(usedRecord.getUsedMemberId()).isEqualTo(member.getId());
     }
 
+    @Test
+    @DisplayName("비활성 트랙 기수의 코드를 발급하고 등록하면 기본 트랙 하나가 저장된다")
+    void 비활성_트랙_기수의_코드를_발급하고_등록하면_기본_트랙_하나가_저장된다() throws Exception {
+        // given
+        Gisu gisu = saveGisuPort.save(Gisu.create(
+            9301L, Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2027-02-01T00:00:00Z"),
+            false, GisuLearningType.TRACK));
+        Chapter chapter = chapterFixture.지부(gisu, "트랙코드지부");
+        School school = schoolFixture.지부에_소속된_학교("트랙코드학교", chapter);
+        Member member = member("트랙회원", "트랙", "track-code@test.com", school.getId());
+        Long recordId = manageChallengerRecordUseCase.create(CreateChallengerRecordCommand.builder()
+            .creatorMemberId(member.getId()).gisuId(gisu.getId()).chapterId(chapter.getId())
+            .schoolId(school.getId()).track(ChallengerTrack.WEB_PRODUCT_ENGINEER)
+            .memberName(member.getName()).build());
+        ChallengerRecord record = challengerRecordJpaRepository.findById(recordId).orElseThrow();
+        ChallengerRecordResponse response = recordResponseAssembler.from(recordId);
+        assertThat(response.chapterId()).isEqualTo(chapter.getId());
+        assertThat(response.chapterName()).isEqualTo(chapter.getName());
+        assertThat(response.track()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        assertThat(response.tracks()).containsExactly(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        authenticate(member.getId());
+
+        // when
+        mockMvc.perform(post("/api/v1/challenger-record/member")
+                .contentType(MediaType.APPLICATION_JSON).content(codeRequest(record.getCode())))
+            .andExpect(status().isOk());
+
+        // then
+        Challenger challenger = challengerJpaRepository.findByMemberIdAndGisuId(member.getId(), gisu.getId())
+            .orElseThrow();
+        assertThat(challenger.getPart()).isNull();
+        assertThat(challenger.getTracks()).containsExactly(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        assertThat(challengerRecordJpaRepository.findById(recordId).orElseThrow().isUsed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("지부 없는 비수강 중앙 운영진 코드를 조회하면 학교와 역할을 보존하고 지부는 비운다")
+    void 지부_없는_비수강_중앙_운영진_코드를_조회한다() {
+        // Given
+        Gisu gisu = saveGisuPort.save(Gisu.create(
+            9303L, Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2027-02-01T00:00:00Z"),
+            false, GisuLearningType.TRACK));
+        School school = schoolFixture.학교("지부미배정중앙학교");
+        Member member = member("중앙회원", "중앙", "central-code@test.com", school.getId());
+        Long recordId = manageChallengerRecordUseCase.create(CreateChallengerRecordCommand.builder()
+            .creatorMemberId(member.getId()).gisuId(gisu.getId()).schoolId(school.getId())
+            .tracks(List.of()).memberName(member.getName())
+            .challengerRoleType(ChallengerRoleType.CENTRAL_OPERATING_TEAM_MEMBER).build());
+
+        // When
+        ChallengerRecordResponse response = recordResponseAssembler.from(recordId);
+
+        // Then
+        assertThat(response.chapterId()).isNull();
+        assertThat(response.chapterName()).isNull();
+        assertThat(response.schoolId()).isEqualTo(school.getId());
+        assertThat(response.schoolName()).isEqualTo(school.getName());
+        assertThat(response.tracks()).isEmpty();
+        assertThat(response.track()).isNull();
+        assertThat(response.challengerRoleType()).isEqualTo(ChallengerRoleType.CENTRAL_OPERATING_TEAM_MEMBER);
+    }
+
+    @Test
+    @DisplayName("같은 코드의 동시 등록은 첫 트랜잭션을 기다린 뒤 이미 사용된 코드로 거절한다")
+    void 같은_코드의_동시_등록은_첫_트랜잭션을_기다린_뒤_이미_사용된_코드로_거절한다() throws Exception {
+        // given
+        RecordContext context = recordContext(9302L, "코드동시성");
+        Member firstMember = member("동명이인", "첫회원", "code-race-first@test.com", context.school().getId());
+        Member secondMember = member("동명이인", "둘회원", "code-race-second@test.com", context.school().getId());
+        ChallengerRecord record = saveChallengerRecordPort.save(ChallengerRecord.create(
+            firstMember.getId(), context.gisu().getId(), context.chapter().getId(), context.school().getId(),
+            ChallengerPart.WEB, firstMember.getName()));
+        CountDownLatch firstConsumed = new CountDownLatch(1);
+        CountDownLatch allowFirstCommit = new CountDownLatch(1);
+
+        try (PostgreSqlTransactionRace race = new PostgreSqlTransactionRace(transactionManager, jdbcTemplate)) {
+            TransactionCall<Void> first = race.submit(() -> {
+                manageChallengerRecordUseCase.consumeCode(ConsumeChallengerRecordCommand.builder()
+                    .targetMemberId(firstMember.getId()).code(record.getCode()).build());
+                firstConsumed.countDown();
+                race.await(allowFirstCommit, "첫 코드 소비 커밋 대기");
+                return null;
+            });
+            race.await(firstConsumed, "첫 코드 소비 완료");
+
+            // when
+            TransactionCall<Void> second = race.submit(() -> {
+                manageChallengerRecordUseCase.consumeCode(ConsumeChallengerRecordCommand.builder()
+                    .targetMemberId(secondMember.getId()).code(record.getCode()).build());
+                return null;
+            });
+            try {
+                race.awaitPostgreSqlLockWait(second);
+                assertThat(second.future().isDone()).isFalse();
+            } finally {
+                allowFirstCommit.countDown();
+            }
+            first.future().get(10, TimeUnit.SECONDS);
+
+            // then
+            ExecutionException failure = assertThrows(ExecutionException.class,
+                () -> second.future().get(10, TimeUnit.SECONDS));
+            assertThat(failure.getCause()).isInstanceOf(ChallengerDomainException.class)
+                .extracting(error -> ((ChallengerDomainException) error).getBaseCode())
+                .isEqualTo(ChallengerErrorCode.USED_CHALLENGER_RECORD_CODE);
+        }
+        assertThat(challengerJpaRepository.findByMemberIdAndGisuId(firstMember.getId(), context.gisu().getId()))
+            .isPresent();
+        assertThat(challengerJpaRepository.findByMemberIdAndGisuId(secondMember.getId(), context.gisu().getId()))
+            .isEmpty();
+        assertThat(challengerRecordJpaRepository.findById(record.getId()).orElseThrow().getUsedMemberId())
+            .isEqualTo(firstMember.getId());
+    }
+
     private RecordContext recordContext(Long generation, String prefix) {
-        Gisu gisu = loadGisuPort.findActiveGisu()
-            .orElseGet(() -> gisuFixture.활성_기수(generation));
+        Gisu gisu = gisuFixture.비활성_기수(generation);
         Chapter chapter = chapterFixture.지부(gisu, prefix + "지부");
         School school = schoolFixture.지부에_소속된_학교(prefix + "학교", chapter);
         return new RecordContext(gisu, chapter, school);

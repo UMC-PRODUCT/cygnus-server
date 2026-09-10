@@ -322,12 +322,12 @@ log.warn(
 | 항목 | 영향 | 완화책 |
 |------|------|--------|
 | 로컬 모델의 분류 정확도가 GPT-4 / Gemini 보다 낮음 | 업무 fallback 채널이 평소보다 채워짐 | preview API 로 분류 결과 사전 검증, fallback 채널 모니터링 강화. |
-| 로컬 모델 응답 latency 가 GPU/CPU 에 의존 (단건 5~30s 가능) | LLM 호출 caller thread 차단 시간 증가 | ADR-012 의 비동기화 (Phase 1) 가 같이 머지되면 영향 흡수. |
+| 로컬 모델 응답 latency 가 GPU/CPU 에 의존 (단건 5~30s 가능) | LLM 호출 caller thread 차단 시간 증가 | 호출 비동기화를 함께 적용하면 영향 완화. |
 | Ollama 0.x 의 token usage 필드 누락 | `llm_chat_completion_tokens_total` 메트릭 0 | 운영 가이드에 Ollama 0.4+ 업그레이드 권고. token 비용은 어차피 self-hosted 에선 의미 작음. |
 | LMStudio / Ollama 가 OpenAI-compat 응답을 100% 모방하지 않을 가능성 | 응답 파싱 실패 → `LlmDomainException` | Commit 4 의 통합 테스트가 응답 호환성 검증. 운영 환경에선 부팅 직후 admin preview 1 회로 smoke test. |
 | `local-key` 같은 dummy api-key 가 실 환경 secret store 에 누수될 가능성 | 보안 영향 0 (서버가 무시) 이지만 위생 떨어짐 | api-key 가 실제로 검증되지 않음을 가이드에 명시. 환경 변수 / properties 자체는 secret 으로 다루지 않아도 됨. |
 
-본 계획은 ADR-012 (LLM 호출 동기 대기 병목 완화) 와 직교한다. 둘 다 머지되면 self-hosted + 비동기화가 자연스럽게 결합한다.
+본 계획과 LLM 호출 비동기화는 별도로 적용할 수 있다. 둘 다 적용되면 self-hosted + 비동기화가 자연스럽게 결합한다.
 
 ## 7. NOT in scope
 
@@ -352,7 +352,6 @@ log.warn(
 
 - 관련 ADR / 보고서
     - [ADR-008: LLM 도메인 provider 전략](../adr/008-llm-domain-provider-strategy.md) — 본 계획의 amendment 대상.
-    - [ADR-012: LLM 호출 동기 대기 병목 완화](../adr/012-llm-call-blocking-bottleneck-mitigation.md) — 로컬 모델 latency 증가 시 같이 머지되면 영향 흡수.
     - [LLM 결제 시 rate limit / 요금 보고서](LLM_결제_요금_및_RATE_LIMIT_보고서.md) — provider 별 rate limit / 단가 변화 정리.
 - 핵심 코드
     - [SpringAiOpenAiChatCompletionAdapter](../../src/main/java/com/umc/product/llm/adapter/out/external/SpringAiOpenAiChatCompletionAdapter.java) — 신규 어댑터의 base 가 되는 기존 OpenAI 어댑터.

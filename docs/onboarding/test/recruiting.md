@@ -102,7 +102,6 @@ Task 12에서는 다음 gate를 각각 독립 실행하고 exit code와 원시 �
 ```bash
 ./gradlew clean compileJava compileTestJava
 ./gradlew test
-./gradlew asciidoctor
 ./gradlew spotlessCheck
 git diff --check
 ```

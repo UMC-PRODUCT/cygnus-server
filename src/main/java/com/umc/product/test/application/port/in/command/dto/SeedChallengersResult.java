@@ -1,7 +1,9 @@
 package com.umc.product.test.application.port.in.command.dto;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
 import java.util.List;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 
 /**
  * 챌린저 분포 시딩 결과. ADR-017 참조.
@@ -9,7 +11,7 @@ import java.util.List;
  * @param gisuId         시딩 대상 기수
  * @param totalCreated   생성된 챌린저 합계
  * @param totalFailed    실패 합계 (memberFailed + challengerFailed)
- * @param perCellSummary (Chapter, School, Part) 셀별 결과
+ * @param perCellSummary (Chapter, School, Part 또는 Track) 셀별 결과
  */
 public record SeedChallengersResult(
     Long gisuId,
@@ -19,7 +21,7 @@ public record SeedChallengersResult(
 ) {
 
     /**
-     * (Chapter, School, Part) 셀별 생성 결과.
+     * (Chapter, School, Part 또는 Track) 셀별 생성 결과.
      * <p>
      * 실패는 단계별로 분리해 응답한다.
      *
@@ -32,7 +34,8 @@ public record SeedChallengersResult(
         ChallengerPart part,
         int created,
         int memberFailed,
-        int challengerFailed
+        int challengerFailed,
+        ChallengerTrack track
     ) {
 
         public int totalFailed() {

@@ -3,11 +3,14 @@ package com.umc.product.organization.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Set;
+
+import org.junit.jupiter.api.Test;
+
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.exception.OrganizationDomainException;
 import com.umc.product.organization.exception.OrganizationErrorCode;
-import java.util.Set;
-import org.junit.jupiter.api.Test;
 
 /**
  * Aggregate root {@link StudyGroup} 의 도메인 invariant 단위 테스트.
@@ -15,6 +18,44 @@ import org.junit.jupiter.api.Test;
  * Spring/DB 없이 순수 도메인 객체로 비즈니스 규칙을 검증한다.
  */
 class StudyGroupTest {
+
+    @Test
+    void 기본트랙_스터디는_파트없이_생성된다() {
+        // when
+        StudyGroup group = StudyGroup.create("웹 트랙", 1L, null, ChallengerTrack.WEB_PRODUCT_ENGINEER,
+            Set.of(1L), Set.of(2L));
+
+        // then
+        assertThat(group.getPart()).isNull();
+        assertThat(group.getTrack()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+    }
+
+    @Test
+    void 파트와_트랙을_함께_지정할_수_없다() {
+        // when & then
+        assertThatThrownBy(() -> StudyGroup.create("웹 트랙", 1L, ChallengerPart.WEB,
+            ChallengerTrack.WEB_PRODUCT_ENGINEER, Set.of(1L), Set.of(2L)))
+            .extracting("baseCode").isEqualTo(OrganizationErrorCode.STUDY_GROUP_LEARNING_TYPE_INVALID);
+    }
+
+    @Test
+    void 플러스트랙_스터디를_생성할_수_없다() {
+        // when & then
+        assertThatThrownBy(() -> StudyGroup.create("인프라", 1L, null,
+            ChallengerTrack.INFRA_PLUS, Set.of(1L), Set.of(2L)))
+            .extracting("baseCode").isEqualTo(OrganizationErrorCode.STUDY_GROUP_LEARNING_TYPE_INVALID);
+    }
+
+    @Test
+    void 트랙스터디를_파트스터디로_변경할_수_없다() {
+        // given
+        StudyGroup group = StudyGroup.create("웹 트랙", 1L, null, ChallengerTrack.WEB_PRODUCT_ENGINEER,
+            Set.of(1L), Set.of(2L));
+
+        // when & then
+        assertThatThrownBy(() -> group.updatePart(ChallengerPart.WEB))
+            .extracting("baseCode").isEqualTo(OrganizationErrorCode.STUDY_GROUP_LEARNING_TYPE_INVALID);
+    }
 
     @Test
     void create_정상_입력이면_StudyGroup_생성() {

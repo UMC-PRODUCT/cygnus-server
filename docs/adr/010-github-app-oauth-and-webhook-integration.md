@@ -30,7 +30,7 @@ UMC PRODUCT는 Spring/Web/Android/iOS/Node 등 개발 파트 챌린저가 다수
 기술 환경과 제약은 다음과 같다.
 
 - 서비스는 이미 [OAuthProvider](../../src/main/java/com/umc/product/common/domain/enums/OAuthProvider.java) enum과 `member_oauth` 테이블을 통해 Google/Apple/Kakao OAuth 로그인을 운영 중이다. 신규 provider는 enum과 분기 한 곳을 추가하면 흡수 가능한 패턴이 잡혀 있다.
-- ADR-003에서 정의한 Discord 발송 인프라(`DiscordWebhookAdapter`, `SendDiscordMentionPort`)가 존재하며, GitHub 활동 알림도 이를 재사용한다.
+- 기존 Discord 발송 인프라(`DiscordWebhookAdapter`, `SendDiscordMentionPort`)가 존재하며, GitHub 활동 알림도 이를 재사용한다.
 - 커리큘럼 도메인(`com.umc.product.curriculum`)에는 `WorkbookMission`, `MissionSubmission`, `ChallengerMission` 등이 있어 GitHub 활동을 미션 신호로 연결할 여지가 있다.
 - GitHub은 동일한 목적에 대해 세 가지 인증 메커니즘(OAuth App, GitHub App, Personal Access Token)을 제공한다. 두 가지를 함께 운영하면 secret/콜백 URL이 두 배로 늘어 운영 복잡도가 빠르게 증가한다.
 - GitHub REST API는 Installation Token 기준 시간당 5,000 요청, GraphQL은 5,000 포인트 제한이 있다. 대규모 Organization에서 폴링 전략은 이 한도를 소진할 위험이 있다.
@@ -74,13 +74,13 @@ UMC PRODUCT는 Spring/Web/Android/iOS/Node 등 개발 파트 챌린저가 다수
 
 추가로, "리뷰 요청이 특정 사람에게 몰리는" 위험 신호 탐지를 위해 `pull_request` 이벤트의 `action="review_requested"`/`"review_request_removed"`를 별도 stat 테이블(`github_review_request_stat`)에 적재한다.
 
-### 5. Discord 알림은 ADR-003의 발송 인프라를 재사용한다
+### 5. Discord 알림은 기존 발송 인프라를 재사용한다
 
 이벤트 핸들러는 `github` 도메인 안에 두고, `notification` 도메인의 `SendWebhookPort`/`SendDiscordMentionPort`를 호출한다. 어느 Discord 채널·role로 보낼지는 `github_repo_link` 테이블의 `discord_channel_webhook_url`/`mention_role_id`에 따른다.
 
 ### 6. 신규 도메인 `com.umc.product.github`을 신설한다
 
-외부 시스템 통합은 별도 컨텍스트로 두는 ADR-003의 결정 원칙을 동일하게 적용한다.
+외부 시스템 통합은 별도 컨텍스트로 둔다.
 
 ### 7. 커리큘럼 연동은 별도 도메인 이벤트 인터페이스로 분리해 둔다
 
@@ -118,7 +118,7 @@ stat 테이블 원본은 90일, `github_metrics_daily`는 1년, `github_repo_met
 
 ### 10. 활동 지표 조회 API는 github 도메인 내 Query 서비스로 운영진에게만 노출한다
 
-다음 Query UseCase를 통해 `/admin/github/metrics/**` 경로로 노출한다. 모든 admin 경로는 ADR-009에 따라 SUPER_ADMIN만 접근 가능하다.
+다음 Query UseCase를 통해 `/admin/github/metrics/**` 경로로 노출한다. 모든 admin 경로는 SUPER_ADMIN만 접근 가능하다.
 
 | UseCase                            | Endpoint                                            | 책임                        |
 |------------------------------------|-----------------------------------------------------|---------------------------|
@@ -733,7 +733,7 @@ Decision §12에서 합의한 "원본 보존 원칙"을 구현 단계에서 강�
 ### Phase 4 — Discord 통지·정리 배치·미션 제출 파서 (5 commits)
 
 20. `feat: github 이벤트 → Discord 통지 핸들러 구현`
-    - `@TransactionalEventListener(AFTER_COMMIT) + @Async` 핸들러에서 `github_repo_link` 조회 → Discord embed 생성 → ADR-003 발송 포트 호출.
+    - `@TransactionalEventListener(AFTER_COMMIT) + @Async` 핸들러에서 `github_repo_link` 조회 → Discord embed 생성 → Discord 발송 포트 호출.
     - embed 포맷: `[{repo}] PR opened: {title}\nby {actor}\n{html_url}` 등 이벤트별 한국어 라벨.
 
 21. `chore: stat 테이블 보관 정리 스케줄러 추가`
@@ -811,8 +811,6 @@ Decision §12에서 합의한 "원본 보존 원칙"을 구현 단계에서 강�
 
 - 관련 ADR
     - [ADR-001: Apple 로그인 ClientType 라우팅](001-apple-signin-client-type-routing.md) — `*OAuthProperties` 패턴, `OAuthProvider` 분기 패턴 참조
-    - [ADR-003: Figma 댓글 Discord 포워딩](003-figma-comment-discord-forwarder.md) — 외부 시스템 통합 도메인 분리 원칙, Discord 발송 인프라 재사용 모델
-    - [ADR-009: Figma admin API SUPER_ADMIN 전용](009-figma-admin-api-super-admin-only.md) — admin 경로 접근 제어 패턴
 - 기존 코드
     - [OAuthProvider](../../src/main/java/com/umc/product/common/domain/enums/OAuthProvider.java)
     - [DiscordWebhookAdapter](../../src/main/java/com/umc/product/notification/adapter/out/external/webhook/DiscordWebhookAdapter.java)

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -17,7 +18,8 @@ import com.umc.product.certificate.application.port.out.dto.CertificatePdfRender
 import lombok.RequiredArgsConstructor;
 
 @Service
-@Profile("local | alpha")
+@Profile("!prod")
+@ConditionalOnProperty(prefix = "app.test-api", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class CertificatePdfPreviewService implements PreviewCertificatePdfUseCase {
 

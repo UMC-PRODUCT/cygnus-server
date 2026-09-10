@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.curriculum.domain.MissionFeedback;
 import com.umc.product.curriculum.domain.MissionSubmission;
 import com.umc.product.curriculum.domain.OriginalWorkbook;
@@ -20,13 +22,21 @@ import lombok.Builder;
 public record MyCurriculumInfo(
     Long curriculumId,
     String title,
-    List<MyWeeklyCurriculumInfo> weeks
+    List<MyWeeklyCurriculumInfo> weeks,
+    ChallengerPart part,
+    ChallengerTrack track
 ) {
+
+    public MyCurriculumInfo(Long curriculumId, String title, List<MyWeeklyCurriculumInfo> weeks) {
+        this(curriculumId, title, weeks, null, null);
+    }
 
     public static MyCurriculumInfo of(CurriculumProjection projection, List<MyWeeklyCurriculumInfo> weeks) {
         return MyCurriculumInfo.builder()
             .curriculumId(projection.id())
             .title(projection.title())
+            .part(projection.part())
+            .track(projection.track())
             .weeks(weeks)
             .build();
     }

@@ -3,6 +3,7 @@ package com.umc.product.organization.adapter.in.web.v2.dto.response;
 import java.time.Instant;
 import java.util.List;
 
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuOrganizationInfo;
 import com.umc.product.organization.domain.enums.SchoolLinkType;
 
@@ -43,7 +44,9 @@ public record GisuOrganizationV2Response(
         List<ChapterItem> chapters,
 
         @Schema(description = "기수 내 학교 목록")
-        List<SchoolItem> schools
+        List<SchoolItem> schools,
+
+        GisuLearningType learningType
     ) {
 
         public static GisuItem from(GisuOrganizationInfo info) {
@@ -54,7 +57,8 @@ public record GisuOrganizationV2Response(
                 info.endAt(),
                 info.isActive(),
                 info.chapters().stream().map(ChapterItem::from).toList(),
-                info.schools().stream().map(SchoolItem::from).toList()
+                info.schools().stream().map(SchoolItem::from).toList(),
+                info.learningType()
             );
         }
     }

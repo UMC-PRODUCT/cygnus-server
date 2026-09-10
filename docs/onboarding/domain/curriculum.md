@@ -2,7 +2,7 @@
 
 ## 역할
 
-`curriculum` 도메인은 기수와 파트별 커리큘럼, 주차별 커리큘럼, 원본 워크북, 챌린저 워크북, 미션 제출과 피드백을 관리한다.
+`curriculum` 도메인은 기수와 Part 또는 Track별 커리큘럼, 주차별 커리큘럼, 원본 워크북, 챌린저 워크북, 미션 제출과 피드백을 관리한다.
 
 ## 책임
 
@@ -33,7 +33,7 @@ erDiagram
 
 ### 엔티티별 의미
 
-- `Curriculum`: 특정 기수와 파트에 대한 상위 커리큘럼이다. 다른 도메인의 기수는 `gisuId`로만 참조한다.
+- `Curriculum`: 특정 기수의 Part 또는 Track에 대한 상위 커리큘럼이다. 다른 도메인의 기수는 `gisuId`로만 참조한다.
 - `WeeklyCurriculum`: 커리큘럼 안의 주차 단위다. 정규 주차와 부록 주차를 `weekNo`, `isExtra` 조합으로 구분한다.
 - `OriginalWorkbook`: 주차별 커리큘럼에 속한 원본 워크북이다. 교육국이 작성하고 `DRAFT`, `READY`, `RELEASED` 상태로 관리한다.
 - `OriginalWorkbookMission`: 원본 워크북에 포함된 원본 미션이다. 제출 방식과 필수 여부를 정의한다.

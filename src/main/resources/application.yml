@@ -243,6 +243,11 @@ management:
   server:
     port: ${MANAGEMENT_PORT:9090}
 
+  health:
+    # 상태 조회마다 SMTP 인증을 반복하지 않는다. 메일 장애는 발송 실패 로그와 지표로 확인한다.
+    mail:
+      enabled: false
+
   endpoint:
     health:
       show-details: always
@@ -491,6 +496,10 @@ app:
     discord:
       url: ${DISCORD_WEBHOOK_URL:}
 
+  # 일반 테스트 및 인증서 PDF 미리보기 API. prod 프로필에서는 설정과 무관하게 비활성화된다.
+  test-api:
+    enabled: ${APP_TEST_API_ENABLED:false}
+
   # test 도메인 시딩 API 설정. ADR-017 참조.
   # 기본값은 비활성. prod 가 아닌 환경에서 APP_SEED_ENABLED=true 로 켜야 시딩 API 가 노출된다.
   seed:
@@ -542,16 +551,20 @@ app:
       burst: ${LLM_RATE_LIMIT_BURST:5}
 
   notification:
-    # 인증 이메일 등 SES v2 발송 설정.
-    # access-key/secret을 비워두면 DefaultCredentialsProvider 체인(IAM Role / IRSA / 환경변수 등)으로 폴백한다.
-    # configuration-set 은 바운스/컴플레인트 트래킹이 필요할 때만 주입한다 (미설정 시 SendEmail 요청에 미포함).
-    # sender.* 는 발송 case 별 발신자 식별자. SES 콘솔에서 verified 처리된 identity 여야 한다.
+    # provider는 ses(기본) 또는 smtp. 선택한 제공자의 자격증명만 필수다.
+    # SMTP는 STARTTLS 인증 연결을 사용하며, Gmail에서는 sender 주소를 SMTP 계정 주소와 맞춘다.
     email:
+      provider: ${EMAIL_PROVIDER:ses}
       ses:
         region: ${SES_REGION:ap-northeast-2}
         access-key-id: ${SES_ACCESS_KEY_ID:}
         secret-access-key: ${SES_SECRET_ACCESS_KEY:}
         configuration-set: ${SES_CONFIGURATION_SET:}
+      smtp:
+        host: ${SMTP_HOST:smtp.gmail.com}
+        port: ${SMTP_PORT:587}
+        username: ${SMTP_USERNAME:}
+        password: ${SMTP_PASSWORD:}
       sender:
         no-reply-address: ${EMAIL_NO_REPLY_ADDRESS}
         no-reply-display-name: ${EMAIL_NO_REPLY_DISPLAY_NAME:University MakeUs Challenge}
@@ -606,6 +619,9 @@ app:
       - origin: http://localhost:5173
         service-type: UNKNOWN
         environment: DEV
+
+  test-api:
+    enabled: ${APP_TEST_API_ENABLED:true}
 
   seed:
     enabled: ${APP_SEED_ENABLED:true}
@@ -678,3 +694,6 @@ app:
   websocket:
     broker:
       mode: ${WEBSOCKET_BROKER_MODE:simple}
+
+  test-api:
+    enabled: ${APP_TEST_API_ENABLED:true}

@@ -1,5 +1,13 @@
 package com.umc.product.global.cache.adapter.out;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.umc.product.global.cache.application.port.out.CacheStorePort;
@@ -7,14 +15,9 @@ import com.umc.product.global.cache.domain.CacheKey;
 import com.umc.product.global.cache.domain.CacheLookup;
 import com.umc.product.global.cache.domain.CacheNamespace;
 import com.umc.product.global.cache.domain.CacheSpec;
+
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Component;
 
 @Component
 public class CaffeineCacheStoreAdapter implements CacheStorePort {
@@ -31,11 +34,6 @@ public class CaffeineCacheStoreAdapter implements CacheStorePort {
     ) {
         this.keyFormatter = keyFormatter;
         this.meterRegistry = meterRegistryProvider.getIfAvailable();
-    }
-
-    CaffeineCacheStoreAdapter(CacheKeyFormatter keyFormatter) {
-        this.keyFormatter = keyFormatter;
-        this.meterRegistry = null;
     }
 
     @Override

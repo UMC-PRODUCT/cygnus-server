@@ -2,6 +2,7 @@ package com.umc.product.test.adapter.in.web;
 
 import java.nio.charset.StandardCharsets;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -25,7 +26,8 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/test/certificates")
-@Profile("local | alpha")
+@Profile("!prod")
+@ConditionalOnProperty(prefix = "app.test-api", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 @Public
 @Tag(name = "Test | 인증서 PDF", description = "개발 환경에서 인증서 PDF 템플릿을 미리보기합니다.")

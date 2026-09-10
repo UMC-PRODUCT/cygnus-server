@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberPageInfo;
@@ -33,10 +34,14 @@ public interface GetStudyGroupUseCase {
      */
     List<StudyGroupWithMemberAndMentorInfo> getMyStudyGroups(Long memberId, Long cursor, int size);
 
+    List<StudyGroupWithMemberAndMentorInfo> getMyStudyGroups(Long memberId, Long cursor, int size, Long gisuId);
+
     /**
      * 스터디 그룹 이름 목록 조회 - memberId 기반으로 schoolId/part를 자동 resolve
      */
     List<StudyGroupNameInfo> getStudyGroupNames(Long memberId);
+
+    List<StudyGroupNameInfo> getStudyGroupNames(Long memberId, Long gisuId);
 
     StudyGroupInfo getById(Long studyGroupId);
 
@@ -46,6 +51,10 @@ public interface GetStudyGroupUseCase {
         Long memberId,
         Long gisuId,
         ChallengerPart part
+    );
+
+    Optional<StudyGroupInfo> findByMemberIdAndGisuIdAndTrack(
+        Long memberId, Long gisuId, ChallengerTrack track
     );
 
     StudyGroupWithMemberAndMentorInfo getWithMemberAndMentorInfoById(Long studyGroupId);
@@ -84,6 +93,10 @@ public interface GetStudyGroupUseCase {
     /**
      * 특정 기수에서 해당 파트들의 스터디 그룹 ID 목록 조회 (파트장용)
      */
+    List<StudyGroupMemberPageInfo> getVisibleStudyGroupMembers(
+        Long requesterMemberId, Long studyGroupId, Long cursor, int size, Long gisuId
+    );
+
     List<Long> getStudyGroupIdsByParts(Long gisuId, Set<ChallengerPart> parts);
 
     /**

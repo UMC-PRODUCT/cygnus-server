@@ -1,5 +1,6 @@
 package com.umc.product.notification.adapter.out.external.ses;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.global.logging.ExternalApiCallLogger;
@@ -29,6 +30,7 @@ import software.amazon.awssdk.services.sesv2.model.SesV2Exception;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "app.notification.email", name = "provider", havingValue = "ses", matchIfMissing = true)
 @RequiredArgsConstructor
 public class SesEmailAdapter implements SendEmailPort {
 

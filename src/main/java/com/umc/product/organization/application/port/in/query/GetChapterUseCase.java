@@ -3,6 +3,7 @@ package com.umc.product.organization.application.port.in.query;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
@@ -20,6 +21,11 @@ public interface GetChapterUseCase {
      * 기수와 학교 정보로 지부 정보를 조회합니다.
      */
     ChapterInfo byGisuAndSchool(Long gisuId, Long schoolId);
+
+    /**
+     * 해당 기수에 학교가 배정된 지부가 없으면 빈 값을 반환합니다.
+     */
+    Optional<ChapterInfo> findByGisuAndSchool(Long gisuId, Long schoolId);
 
     List<ChapterInfo> getChaptersBySchool(Long schoolId);
 

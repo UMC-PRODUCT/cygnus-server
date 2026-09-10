@@ -1,8 +1,10 @@
 package com.umc.product.test.adapter.in.web.dto;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.test.application.port.in.command.dto.SeedChallengersResult;
 import java.util.List;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.test.application.port.in.command.dto.SeedChallengersResult;
 
 public record SeedChallengersResponse(
     Long gisuId,
@@ -17,7 +19,8 @@ public record SeedChallengersResponse(
         ChallengerPart part,
         int created,
         int memberFailed,
-        int challengerFailed
+        int challengerFailed,
+        ChallengerTrack track
     ) {
 
         public static PerCellSummary from(SeedChallengersResult.PerCellSummary summary) {
@@ -27,7 +30,8 @@ public record SeedChallengersResponse(
                 summary.part(),
                 summary.created(),
                 summary.memberFailed(),
-                summary.challengerFailed()
+                summary.challengerFailed(),
+                summary.track()
             );
         }
     }

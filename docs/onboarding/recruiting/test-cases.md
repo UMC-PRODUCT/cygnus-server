@@ -153,7 +153,6 @@ Recruiting migration은 최초 배포 전이라는 전제에서 `V2026.07.15.13.
 ```bash
 ./gradlew compileJava compileTestJava
 ./gradlew test
-./gradlew asciidoctor
 ```
 
 변경 범위가 좁더라도 마지막에는 전체 테스트를 실행한다. PostgreSQL 제약과 pessimistic lock 검증은 Testcontainers를 사용하므로 Docker 실행 환경이 필요하다.

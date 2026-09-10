@@ -63,6 +63,33 @@ class AuthoritySnapshotCacheSerializerTest {
     }
 
     @Test
+    @DisplayName("지부 없는 비수강 중앙 운영진의 캐시를 복원해도 기수와 역할 범위를 유지한다")
+    void 지부_없는_중앙_운영진의_권한_범위를_복원한다() {
+        // given
+        AuthoritySnapshotCacheSerializer serializer = new AuthoritySnapshotCacheSerializer(productionObjectMapper());
+        AuthoritySnapshot snapshot = AuthoritySnapshot.of(
+            1L,
+            30L,
+            List.of(GisuChallengerInfo.builder().gisuId(11L).challengerId(100L).build()),
+            List.of(new RoleAttribute(
+                ChallengerRoleType.CENTRAL_OPERATING_TEAM_MEMBER, OrganizationType.CENTRAL, null, null, 11L
+            )),
+            Set.of()
+        );
+
+        // when
+        AuthoritySnapshot restored = serializer.deserialize(serializer.serialize(snapshot));
+
+        // then
+        assertThat(restored.gisuChallengerInfos()).isEqualTo(snapshot.gisuChallengerInfos());
+        assertThat(restored.gisuChallengerInfos().getFirst().chapterId()).isNull();
+        assertThat(restored.isCentralMemberInGisu(11L)).isTrue();
+        assertThat(restored.isCentralMemberInGisu(10L)).isFalse();
+        assertThat(restored.isSchoolCoreInGisu(11L, 30L)).isFalse();
+        assertThat(restored.isChapterPresidentInGisu(11L, 90L)).isFalse();
+    }
+
+    @Test
     @DisplayName("schema version이 없거나 지원하지 않는 캐시 payload는 복원하지 않는다")
     void reject_missing_or_unsupported_schema_version() {
         AuthoritySnapshotCacheSerializer serializer = new AuthoritySnapshotCacheSerializer(

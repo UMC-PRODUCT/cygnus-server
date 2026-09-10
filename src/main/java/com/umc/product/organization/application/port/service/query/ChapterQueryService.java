@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -59,6 +60,12 @@ public class ChapterQueryService implements GetChapterUseCase {
 
     @Override
     public ChapterInfo byGisuAndSchool(Long gisuId, Long schoolId) {
+        return findByGisuAndSchool(gisuId, schoolId)
+            .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.CHAPTER_NOT_FOUND));
+    }
+
+    @Override
+    public Optional<ChapterInfo> findByGisuAndSchool(Long gisuId, Long schoolId) {
         // 지부 정보를 보여줘야 하면 ChapterSchool을 봐야 함
         // 전체 ChapterSchool 중에서 schoolId에 따라서 필터링하고
         // ChapterSchool 중에서 gisuId가 일치하는 chapter를 반환하면 됨
@@ -67,11 +74,11 @@ public class ChapterQueryService implements GetChapterUseCase {
         for (ChapterSchool chapterSchool : chapterSchools) {
             Chapter chapter = chapterSchool.getChapter();
             if (chapter.getGisu().getId().equals(gisuId)) {
-                return ChapterInfo.from(chapter);
+                return Optional.of(ChapterInfo.from(chapter));
             }
         }
 
-        throw new OrganizationDomainException(OrganizationErrorCode.CHAPTER_NOT_FOUND);
+        return Optional.empty();
     }
 
     @Override

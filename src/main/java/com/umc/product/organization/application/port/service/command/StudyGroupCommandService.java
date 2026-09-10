@@ -1,12 +1,18 @@
 package com.umc.product.organization.application.port.service.command;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.organization.application.port.in.command.ManageStudyGroupUseCase;
 import com.umc.product.organization.application.port.in.command.dto.AddStudyMemberCommand;
 import com.umc.product.organization.application.port.in.command.dto.AddStudyMentorCommand;
@@ -33,16 +39,23 @@ public class StudyGroupCommandService implements ManageStudyGroupUseCase {
     private final LoadStudyGroupPort loadStudyGroupPort;
     private final LoadGisuPort loadGisuPort;
     private final SaveStudyGroupPort saveStudyGroupPort;
+    private final GetChallengerUseCase getChallengerUseCase;
 
     @Override
     public void create(CreateStudyGroupCommand command) {
         // 생성하고자 하는 기수에 스터디를 생성
         Gisu gisu = loadGisuPort.getById(command.gisuId());
-        validateNoPartStudyConflict(gisu.getId(), command.part(), command.memberIds(), null);
+        validateLearningType(gisu.getLearningType(), command.part(), command.track());
+        if (command.track() != null) {
+            loadGisuPort.getByIdForUpdate(gisu.getId());
+            validateTrackMembers(gisu.getId(), command.track(), command.memberIds(), null);
+        } else {
+            validateNoPartStudyConflict(gisu.getId(), command.part(), command.memberIds(), null);
+        }
 
         saveStudyGroupPort.save(
             StudyGroup.create(
-                command.name(), gisu.getId(), command.part(),
+                command.name(), gisu.getId(), command.part(), command.track(),
                 command.memberIds(), command.mentorIds()
             )
         );
@@ -52,6 +65,12 @@ public class StudyGroupCommandService implements ManageStudyGroupUseCase {
     public void update(UpdateStudyGroupCommand command) {
         StudyGroup studyGroup = loadStudyGroupPort.getEntityById(command.groupId());
 
+        if (command.track() != null && command.track() != studyGroup.getTrack()) {
+            throw new OrganizationDomainException(OrganizationErrorCode.STUDY_GROUP_TRACK_IMMUTABLE);
+        }
+        if (studyGroup.getTrack() != null && command.part() != null) {
+            throw new OrganizationDomainException(OrganizationErrorCode.STUDY_GROUP_LEARNING_TYPE_INVALID);
+        }
         if (command.part() != null && command.part() != studyGroup.getPart()) {
             Set<Long> memberIds = studyGroup.getMembers().stream()
                 .map(StudyGroupMember::getMemberId)
@@ -69,9 +88,21 @@ public class StudyGroupCommandService implements ManageStudyGroupUseCase {
     public void addMember(AddStudyMemberCommand command) {
         StudyGroup studyGroup = loadStudyGroupPort.getEntityById(command.groupId());
 
-        validateNoPartStudyConflict(
-            studyGroup.getGisuId(), studyGroup.getPart(), Set.of(command.memberId()), studyGroup.getId()
-        );
+        if (studyGroup.getTrack() != null) {
+            loadGisuPort.getByIdForUpdate(studyGroup.getGisuId());
+            validateTrackMembers(
+                studyGroup.getGisuId(), studyGroup.getTrack(), Set.of(command.memberId()), studyGroup.getId()
+            );
+            // 잠금 대기 전에 읽은 컬렉션 대신 최신 DB 소속으로 동일 그룹의 동시 재추가를 검사한다.
+            if (loadStudyGroupPort.findMemberIdsByStudyGroupIds(Set.of(studyGroup.getId()))
+                .getOrDefault(studyGroup.getId(), List.of()).contains(command.memberId())) {
+                throw new OrganizationDomainException(OrganizationErrorCode.STUDY_GROUP_MEMBER_DUPLICATED);
+            }
+        } else {
+            validateNoPartStudyConflict(
+                studyGroup.getGisuId(), studyGroup.getPart(), Set.of(command.memberId()), studyGroup.getId()
+            );
+        }
         studyGroup.addMember(command.memberId());
         saveStudyGroupPort.save(studyGroup);
     }
@@ -105,6 +136,38 @@ public class StudyGroupCommandService implements ManageStudyGroupUseCase {
         StudyGroup studyGroup = loadStudyGroupPort.getEntityById(studyGroupId);
 
         saveStudyGroupPort.delete(studyGroup);
+    }
+
+    private void validateLearningType(GisuLearningType learningType, ChallengerPart part, ChallengerTrack track) {
+        boolean valid = learningType == GisuLearningType.TRACK
+            ? part == null && track != null && track.isBasic()
+            : part != null && track == null;
+        if (!valid) {
+            throw new OrganizationDomainException(OrganizationErrorCode.STUDY_GROUP_LEARNING_TYPE_INVALID);
+        }
+    }
+
+    private void validateTrackMembers(
+        Long gisuId, ChallengerTrack track, Set<Long> memberIds, Long excludedStudyGroupId
+    ) {
+        if (memberIds == null || memberIds.isEmpty()) {
+            return;
+        }
+        Set<Long> eligibleMemberIds = getChallengerUseCase.listBasicByMemberIdsAndGisuId(memberIds, gisuId).stream()
+            .filter(info -> Objects.equals(info.gisuId(), gisuId))
+            .filter(info -> info.challengerStatus() == ChallengerStatus.ACTIVE)
+            .filter(info -> info.tracks().contains(track))
+            .map(info -> info.memberId())
+            .collect(Collectors.toSet());
+        if (!eligibleMemberIds.containsAll(memberIds)) {
+            throw new OrganizationDomainException(OrganizationErrorCode.STUDY_GROUP_TRACK_MEMBER_INVALID);
+        }
+        Set<Long> conflictMemberIds = loadStudyGroupPort.findConflictedTrackMemberIds(
+            gisuId, track, memberIds, excludedStudyGroupId
+        );
+        if (!conflictMemberIds.isEmpty()) {
+            throw new OrganizationDomainException(OrganizationErrorCode.STUDY_GROUP_MEMBER_ALREADY_IN_TRACK_STUDY);
+        }
     }
 
     private void validateNoPartStudyConflict(

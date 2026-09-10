@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.curriculum.application.port.in.command.ManageCurriculumUseCase;
 import com.umc.product.curriculum.application.port.in.command.dto.curriculum.CreateCurriculumCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.curriculum.EditCurriculumCommand;
@@ -15,6 +16,7 @@ import com.umc.product.curriculum.domain.Curriculum;
 import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
 import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
 import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,9 +28,8 @@ public class CurriculumCommandService implements ManageCurriculumUseCase {
     private final LoadCurriculumPort loadCurriculumPort;
     private final SaveCurriculumPort saveCurriculumPort;
     private final LoadWeeklyCurriculumPort loadWeeklyCurriculumPort;
+    private final GetGisuUseCase getGisuUseCase;
 
-    // TODO: 기수(Gisu) 유효성 검사 필요 - organization 도메인의 GetGisuUseCase.getById() 호출로 존재 여부 확인
-    //  현재 gisuId가 실제 존재하는 기수인지 검증하지 않음
     @Audited(
         domain = Domain.CURRICULUM,
         action = AuditAction.CREATE,
@@ -38,10 +39,22 @@ public class CurriculumCommandService implements ManageCurriculumUseCase {
     )
     @Override
     public Long create(CreateCurriculumCommand command) {
-        if (loadCurriculumPort.existsByGisuIdAndPart(command.gisuId(), command.part())) {
+        GisuLearningType learningType = getGisuUseCase.getById(command.gisuId()).learningType();
+        boolean valid = learningType == GisuLearningType.PART
+            ? command.part() != null && command.track() == null
+            : command.part() == null && command.track() != null;
+        if (!valid) {
+            throw new CurriculumDomainException(CurriculumErrorCode.INVALID_CURRICULUM_LEARNING_TYPE);
+        }
+        Curriculum curriculum = learningType == GisuLearningType.PART
+            ? Curriculum.create(command.gisuId(), command.part(), command.title())
+            : Curriculum.createForTrack(command.gisuId(), command.track(), command.title());
+        boolean exists = learningType == GisuLearningType.PART
+            ? loadCurriculumPort.existsByGisuIdAndPart(command.gisuId(), command.part())
+            : loadCurriculumPort.existsByGisuIdAndTrack(command.gisuId(), command.track());
+        if (exists) {
             throw new CurriculumDomainException(CurriculumErrorCode.CURRICULUM_ALREADY_EXISTS);
         }
-        Curriculum curriculum = Curriculum.create(command.gisuId(), command.part(), command.title());
         return saveCurriculumPort.save(curriculum).getId();
     }
 

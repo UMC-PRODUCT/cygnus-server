@@ -3,10 +3,6 @@ package com.umc.product.organization.adapter.in.web.v2;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
-import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
-import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
-import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -18,12 +14,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.restdocs.mockmvc.RestDocumentationResultHandler;
-import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -37,20 +30,15 @@ import com.umc.product.organization.application.port.in.query.dto.gisu.GisuOrgan
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuOrganizationInfo.SchoolOrganizationInfo;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuOrganizationQuery;
 import com.umc.product.organization.domain.enums.SchoolLinkType;
-import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = GisuQueryV2Controller.class)
-@Import({JacksonConfig.class, RestDocsConfig.class})
+@Import(JacksonConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
-@AutoConfigureRestDocs
 @DisplayName("GisuQueryV2Controller")
 class GisuQueryV2ControllerTest {
 
     @Autowired
     MockMvc mockMvc;
-
-    @Autowired
-    RestDocumentationResultHandler restDocsHandler;
 
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
@@ -71,58 +59,48 @@ class GisuQueryV2ControllerTest {
                 .param("includeChapter", "true")
                 .param("includeSchool", "true"))
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.code").isString())
+            .andExpect(jsonPath("$.message").isString())
+            .andExpect(jsonPath("$.result.gisus").isArray())
             .andExpect(jsonPath("$.result.gisus.length()").value(2))
+            .andExpect(jsonPath("$.result.gisus[0].gisuId").isString())
             .andExpect(jsonPath("$.result.gisus[0].gisuId").value(1L))
+            .andExpect(jsonPath("$.result.gisus[0].generation").isString())
             .andExpect(jsonPath("$.result.gisus[0].generation").value(9L))
             .andExpect(jsonPath("$.result.gisus[0].gisu").doesNotExist())
+            .andExpect(jsonPath("$.result.gisus[0].startAt").value("2026-03-01T00:00:00Z"))
+            .andExpect(jsonPath("$.result.gisus[0].endAt").value("2026-08-31T23:59:59Z"))
+            .andExpect(jsonPath("$.result.gisus[0].isActive").value(true))
             .andExpect(jsonPath("$.result.gisus[0].chapters").isArray())
+            .andExpect(jsonPath("$.result.gisus[0].chapters.length()").value(1))
+            .andExpect(jsonPath("$.result.gisus[0].chapters[0].chapterId").isString())
+            .andExpect(jsonPath("$.result.gisus[0].chapters[0].chapterId").value("100"))
+            .andExpect(jsonPath("$.result.gisus[0].chapters[0].chapterName").value("Ain 지부"))
+            .andExpect(jsonPath("$.result.gisus[0].chapters[0].schools").isArray())
+            .andExpect(jsonPath("$.result.gisus[0].chapters[0].schools[0].schoolId").value("1000"))
+            .andExpect(jsonPath("$.result.gisus[0].chapters[0].schools[0].schoolName").value("중앙대학교"))
             .andExpect(jsonPath("$.result.gisus[0].schools").isArray())
-            .andDo(restDocsHandler.document(
-                queryParameters(
-                    parameterWithName("id").description("기수 ID 목록. 중복 값은 첫 등장 순서를 유지하며 제거").optional(),
-                    parameterWithName("generation").description("기수 번호 목록. id/active와 동시에 사용할 수 없음").optional(),
-                    parameterWithName("active").description("활성 기수 조회 여부. true만 유효").optional(),
-                    parameterWithName("includeChapter").description("기수 내 지부 정보 포함 여부. 기본 false").optional(),
-                    parameterWithName("includeSchool").description("기수 내 학교 정보 포함 여부. 기본 false").optional()
-                ),
-                responseFields(
-                    fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                    fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                    fieldWithPath("result.gisus").type(JsonFieldType.ARRAY).description("기수 조직 목록"),
-                    fieldWithPath("result.gisus[].gisuId").type(JsonFieldType.STRING).description("기수 ID"),
-                    fieldWithPath("result.gisus[].generation").type(JsonFieldType.STRING).description("기수 번호"),
-                    fieldWithPath("result.gisus[].startAt").type(JsonFieldType.STRING).description("기수 시작 일시"),
-                    fieldWithPath("result.gisus[].endAt").type(JsonFieldType.STRING).description("기수 종료 일시"),
-                    fieldWithPath("result.gisus[].isActive").type(JsonFieldType.BOOLEAN).description("활성 기수 여부"),
-                    fieldWithPath("result.gisus[].chapters").type(JsonFieldType.ARRAY)
-                        .description("기수 내 지부 목록. includeChapter=false이면 빈 배열"),
-                    fieldWithPath("result.gisus[].chapters[].chapterId").type(JsonFieldType.STRING).description("지부 ID"),
-                    fieldWithPath("result.gisus[].chapters[].chapterName").type(JsonFieldType.STRING).description("지부 이름"),
-                    fieldWithPath("result.gisus[].chapters[].schools").type(JsonFieldType.ARRAY)
-                        .description("지부 내 학교 목록. includeSchool=false이면 빈 배열"),
-                    fieldWithPath("result.gisus[].chapters[].schools[].schoolId").type(JsonFieldType.STRING)
-                        .description("지부 내 학교 ID"),
-                    fieldWithPath("result.gisus[].chapters[].schools[].schoolName").type(JsonFieldType.STRING)
-                        .description("지부 내 학교 이름"),
-                    fieldWithPath("result.gisus[].schools").type(JsonFieldType.ARRAY)
-                        .description("기수 내 학교 목록. includeSchool=false이면 빈 배열"),
-                    fieldWithPath("result.gisus[].schools[].chapterId").type(JsonFieldType.STRING).description("학교 소속 지부 ID"),
-                    fieldWithPath("result.gisus[].schools[].chapterName").type(JsonFieldType.STRING).description("학교 소속 지부 이름"),
-                    fieldWithPath("result.gisus[].schools[].schoolId").type(JsonFieldType.STRING).description("학교 ID"),
-                    fieldWithPath("result.gisus[].schools[].schoolName").type(JsonFieldType.STRING).description("학교 이름"),
-                    fieldWithPath("result.gisus[].schools[].shortName").type(JsonFieldType.STRING).description("학교 약칭").optional(),
-                    fieldWithPath("result.gisus[].schools[].remark").type(JsonFieldType.STRING).description("학교 비고"),
-                    fieldWithPath("result.gisus[].schools[].logoImageUrl").type(JsonFieldType.STRING).description("학교 로고 이미지 URL"),
-                    fieldWithPath("result.gisus[].schools[].links").type(JsonFieldType.ARRAY).description("학교 링크 목록"),
-                    fieldWithPath("result.gisus[].schools[].links[].title").type(JsonFieldType.STRING).description("링크 제목"),
-                    fieldWithPath("result.gisus[].schools[].links[].type").type(JsonFieldType.STRING).description("링크 타입"),
-                    fieldWithPath("result.gisus[].schools[].links[].url").type(JsonFieldType.STRING).description("링크 URL"),
-                    fieldWithPath("result.gisus[].schools[].isActive").type(JsonFieldType.BOOLEAN).description("학교 활성 여부"),
-                    fieldWithPath("result.gisus[].schools[].createdAt").type(JsonFieldType.STRING).description("학교 생성 일시"),
-                    fieldWithPath("result.gisus[].schools[].updatedAt").type(JsonFieldType.STRING).description("학교 수정 일시")
-                )
-            ));
+            .andExpect(jsonPath("$.result.gisus[0].schools.length()").value(1))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].chapterId").value("100"))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].chapterName").value("Ain 지부"))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].schoolId").value("1000"))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].schoolName").value("중앙대학교"))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].shortName").doesNotExist())
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].remark").value("비고"))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].logoImageUrl")
+                .value("https://storage.example.com/school-logo.png"))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].links").isArray())
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].links[0].title").value("인스타그램"))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].links[0].type").value("INSTAGRAM"))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].links[0].url")
+                .value("https://instagram.com/example"))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].isActive").value(true))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].createdAt").value("2026-03-01T00:00:00Z"))
+            .andExpect(jsonPath("$.result.gisus[0].schools[0].updatedAt").value("2026-03-02T00:00:00Z"))
+            .andExpect(jsonPath("$.result.gisus[1].gisuId").value("2"))
+            .andExpect(jsonPath("$.result.gisus[1].chapters").isEmpty())
+            .andExpect(jsonPath("$.result.gisus[1].schools").isEmpty());
 
         ArgumentCaptor<GisuOrganizationQuery> captor = ArgumentCaptor.forClass(GisuOrganizationQuery.class);
         then(getGisuOrganizationUseCase).should().get(captor.capture());

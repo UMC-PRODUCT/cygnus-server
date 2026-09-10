@@ -6,6 +6,7 @@ import com.umc.product.curriculum.application.port.in.query.dto.StudyMemberSubmi
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 /**
  * 스터디원 제출 현황 조회 요청.
@@ -17,11 +18,16 @@ import jakarta.validation.constraints.Positive;
  */
 public record GetStudyMemberSubmissionsRequest(
     @Positive Long studyGroupId,
-    List<@Positive Long> weekNos,
+    List<@PositiveOrZero Long> weekNos,
     @Positive Long cursor,
-    @Positive @Max(100) Integer size
+    @Positive @Max(100) Integer size,
+    @Positive Long gisuId
 ) {
     private static final int DEFAULT_SIZE = 20;
+
+    public GetStudyMemberSubmissionsRequest(Long studyGroupId, List<Long> weekNos, Long cursor, Integer size) {
+        this(studyGroupId, weekNos, cursor, size, null);
+    }
 
     public StudyMemberSubmissionQuery toQuery(Long requesterMemberId) {
         return new StudyMemberSubmissionQuery(
@@ -29,7 +35,8 @@ public record GetStudyMemberSubmissionsRequest(
             studyGroupId,
             weekNos == null ? List.of() : weekNos,
             cursor,
-            resolvedSize()
+            resolvedSize(),
+            gisuId
         );
     }
 

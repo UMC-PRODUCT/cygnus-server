@@ -11,7 +11,7 @@ Proposed (2026-05-08)
 - 단일 인스턴스(`local` 기본 profile, 운영은 별도 단일 노드) + PostgreSQL 18 + Caffeine L1 + JPA/QueryDSL.
 - 관측 인프라는 Prometheus(`9090`), OTLP tracing, Sentry, Loki 까지 갖춰져 있어 latency / error / DB 풀 사용량 등의 응답 측 지표는 이미 수집된다.
 - 그러나 **사전 부하 테스트로 검증된 SLO 가 존재하지 않는다.** "어느 endpoint 가 어느 RPS 에서 무너지는가" 의 근거 데이터가 비어 있어, 실제 운영 spike (예: 프로젝트 신청 마감 직전, 출석 인증 마감 직전) 가 도래하기 전까지 한도를 알 수 없다.
-- 동시에 [ADR-012](012-llm-call-blocking-bottleneck-mitigation.md) 의 Phase 1 (virtual-thread 비동기) 같은 구조 변경의 효과 검증을 운영 사이클의 자연 트래픽으로만 관찰하고 있어, 변경 전후의 정량적 비교가 어렵다.
+- 동시에 virtual-thread 비동기 같은 구조 변경의 효과 검증을 운영 사이클의 자연 트래픽으로만 관찰하고 있어, 변경 전후의 정량적 비교가 어렵다.
 
 도메인 분포는 다음과 같다 (web Controller 수 / persistence Adapter 수 기준, 5/8 일 빌드 트리 기반).
 
@@ -24,7 +24,7 @@ Proposed (2026-05-08)
 | challenger                                                             | 5              | 3                    | record 제출(매주 마감 spike), search, point 적립                              |
 | authentication                                                         | 5              | 2                    | 로그인/토큰 갱신 — 모든 트래픽의 사전 단계, 평소 baseline 1차 후보                          |
 | notice                                                                 | 4              | 3                    | 공지 게시 직후 fan-out read                                                 |
-| figma                                                                  | 4              | 4                    | 외부 동기/스케줄러 — ADR-012 의 검증 대상                                          |
+| figma                                                                  | 4              | 4                    | 외부 동기/스케줄러 — 비동기 처리 효과 검증 대상                                          |
 | schedule (V2)                                                          | 2              | 2                    | 캘린더 range 조회, 다른 도메인이 중첩 호출                                           |
 | 기타 (term, storage, member, audit, survey, notification, authorization) | 1~2            | 1~6                  | spike 가능성 또는 관측 우선순위 낮음                                               |
 
@@ -32,7 +32,7 @@ Proposed (2026-05-08)
 
 - k6 를 부하·성능 테스트 도구로 채택할지, 아니면 JMeter / Gatling / Locust 등 대안을 택할지.
 - **도메인 단위 우선순위** 와 **시나리오(smoke / load / stress / spike / soak / breakpoint) 별 적용 전략** 을 어떻게 구성할지.
-- 결과를 어디에/어떻게 기록·비교할지 (단발성 측정에 그치지 않고, ADR-012 같은 구조 변경 전후의 회귀 비교가 가능한 형태로).
+- 결과를 어디에/어떻게 기록·비교할지 (단발성 측정에 그치지 않고, 비동기 처리 같은 구조 변경 전후의 회귀 비교가 가능한 형태로).
 - 테스트 대상 환경 (local / staging / production) 과 데이터 격리 / 인증 토큰 발급 / cleanup 정책.
 - CI 통합 범위 — PR 당 자동 실행할지, 주간 정기로 돌릴지.
 
@@ -78,11 +78,11 @@ docs/loadtest/
 │       ├── summary.md       # 환경, 가설, 결과 요약, 후속 액션
 │       ├── thresholds.json  # k6 가 생성한 raw 결과
 │       └── grafana-link.md  # 실행 시점 dashboard 영구 링크
-└── adr-followups/           # ADR 변경 전후 비교 (예: ADR-012 phase1)
+└── adr-followups/           # ADR 변경 전후 비교 (예: 비동기 처리 전환)
 ```
 
 - 결과 디렉터리는 `docs/loadtest/runs/` 아래에 **실행 단위로 디렉터리를 만들어 영구 보존** 한다. 각 실행은 단순 raw output 이 아니라 `summary.md` 로 가설·환경·결론을 같이 남긴다 (ADR 의 `Context → Decision → Consequences` 와 같은 사고 형식을 작은 규모로 반복).
-- ADR 의 결정이 부하 특성에 영향을 주는 경우 (ADR-012 같은 비동기 도입), 해당 ADR 의 References 섹션에서 `docs/loadtest/adr-followups/` 의 비교 보고서를 역참조한다.
+- ADR 의 결정이 부하 특성에 영향을 주는 경우 (비동기 도입 등), 해당 ADR 의 References 섹션에서 `docs/loadtest/adr-followups/` 의 비교 보고서를 역참조한다.
 
 ### 3. 도메인 우선순위 (3 단계)
 
@@ -104,7 +104,7 @@ read-heavy 또는 N+1 위험이 의심되는 도메인. Phase 1 으로 baseline 
 
 #### Tier 3 — 선택적 / ADR 후속 (필요 시)
 
-7. **figma + LLM 비동기 경로** — ADR-012 Phase 1 도입 전후 비교 전용. RPS 부담은 작지만 wall-clock 변화의 회귀 검증용 (`docs/loadtest/adr-followups/adr-012-phase1.md`).
+7. **figma + LLM 비동기 경로** — 비동기 처리 도입 전후 비교 전용. RPS 부담은 작지만 wall-clock 변화의 회귀 검증용.
 8. **storage** — S3 / CloudFront signed URL 발급 latency. 외부 의존이라 부하 본체보다는 timeout / retry 동작 검증.
 9. **notice / notification** — 공지 게시 직후 fan-out read. 운영 spike 가 작을 가능성이 높아 후순위.
 
@@ -246,7 +246,7 @@ staging 과 운영의 구성 차이 (DB 사이즈, 인스턴스 사양) 를 보�
 
 ### Positive
 
-- ADR-012 같은 구조 변경의 효과를 정량적으로 비교할 수 있는 베이스라인이 생긴다.
+- 비동기 처리 같은 구조 변경의 효과를 정량적으로 비교할 수 있는 베이스라인이 생긴다.
 - 운영 spike (프로젝트 신청 마감, 출석 인증 마감) 도래 전에 endpoint 별 한도가 사전에 알려져, capacity 결정과 인프라 선조정이 가능해진다.
 - N+1 / connection pool 부족 / cache miss 같은 잠재적 결함이 운영 사고로 노출되기 전에 식별된다.
 - 결과가 `docs/loadtest/runs/` 아래 영구 보존되어, 1 년 뒤 "왜 이 SLO 가 이 값인가" 의 근거를 추적할 수 있다.
@@ -283,7 +283,7 @@ staging 과 운영의 구성 차이 (DB 사이즈, 인스턴스 사양) 를 보�
 
 - community / organization / curriculum 시나리오 작성.
 - nightly load 자동 실행 (`loadtest-nightly.yml`).
-- ADR-012 Phase 1 의 효과 검증 보고서 (`docs/loadtest/adr-followups/adr-012-phase1.md`) 작성.
+- 비동기 처리 도입 전후의 효과 검증 보고서 작성.
 
 ### k6 실행 예시
 
@@ -390,7 +390,6 @@ export default function (data) {
 ## References
 
 - 관련 ADR
-    - [ADR-012: LLM 호출의 동기 대기 병목 완화 전략](012-llm-call-blocking-bottleneck-mitigation.md) — 본 ADR 의 후속 검증 1차 대상 (Phase 1 전후 비교).
     - [ADR-011: Inquiry 도메인과 WebSocket/STOMP 도입](011-inquiry-domain-with-websocket-stomp.md) — WebSocket 부하 테스트는 본 ADR 의 1차 범위 밖, 별도 ADR 후보.
     - [ADR-008: LLM 도메인 구현 (Spring AI + Gemini)](008-llm-domain-provider-strategy.md) — figma + LLM Tier 3 도메인의 호출량 가정.
 - 외부 자료

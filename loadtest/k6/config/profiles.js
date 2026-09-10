@@ -1,5 +1,5 @@
 // 부하 유형(profile)별 k6 실행 옵션·thresholds 를 만든다.
-// RATE/DURATION 은 run-umc-k6 인자로 들어오고, 없으면 유형별 기본값을 쓴다.
+// RATE/DURATION 환경변수가 없으면 유형별 기본값을 쓴다.
 const DEFAULT_DURATION = {
   smoke: "1m",
   load: "10m",

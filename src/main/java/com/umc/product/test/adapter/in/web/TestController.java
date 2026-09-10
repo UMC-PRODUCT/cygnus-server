@@ -2,6 +2,7 @@ package com.umc.product.test.adapter.in.web;
 
 import java.util.List;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,7 +46,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @RequiredArgsConstructor
-@Profile("local | alpha")
+@Profile("!prod")
+@ConditionalOnProperty(prefix = "app.test-api", name = "enabled", havingValue = "true")
 @RestController
 @RequestMapping("/test")
 @Tag(name = "Test | 일반 테스트", description = "개발과 테스트 환경에서만 사용하는 점검 API입니다.")

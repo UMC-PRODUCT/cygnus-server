@@ -3,6 +3,7 @@ package com.umc.product.global.config;
 import java.util.List;
 import java.util.Optional;
 
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.info.BuildProperties;
@@ -25,21 +26,46 @@ import lombok.RequiredArgsConstructor;
 public class OpenApiConfig {
 
     private static final String DEFAULT_API_VERSION = "local";
+    private static final String TEST_API_BASIC_AUTH = "Test API Basic Auth";
 
     private final String accessToken = "Access Token";
     private final ObjectProvider<BuildProperties> buildPropertiesProvider;
-
-    @Value("${server.port:8080}")
-    private String serverPort;
 
     @Bean
     public OpenAPI umcProductApi() {
 
         return new OpenAPI()
             .info(apiInfo())
-            .servers(servers())
+            .servers(List.of(new Server().url("/").description("현재 접속 서버")))
             .components(securityComponents())
             .addSecurityItem(securityRequirement());
+    }
+
+    @Bean
+    public OpenApiCustomizer testApiSecurityCustomizer(@Value("${app.environment:local}") String environment) {
+        return openApi -> {
+            boolean requiresBasicAuth = "dev".equals(environment);
+            if (requiresBasicAuth) {
+                openApi.getComponents().addSecuritySchemes(TEST_API_BASIC_AUTH,
+                    new SecurityScheme()
+                        .type(SecurityScheme.Type.HTTP)
+                        .scheme("basic")
+                        .description("API 문서 접속 시 사용한 아이디와 비밀번호를 입력하세요.")
+                );
+            }
+
+            openApi.getPaths().forEach((path, pathItem) -> {
+                // 회원 JWT 검증용 API는 기존 Bearer 인증을 유지한다.
+                if (!path.startsWith("/test/") || path.equals("/test/check-authenticated")) {
+                    return;
+                }
+                pathItem.readOperations().forEach(operation -> operation.setSecurity(
+                    requiresBasicAuth
+                        ? List.of(new SecurityRequirement().addList(TEST_API_BASIC_AUTH))
+                        : List.of()
+                ));
+            });
+        };
     }
 
     private Info apiInfo() {
@@ -78,20 +104,6 @@ public class OpenApiConfig {
             .map(BuildProperties::getVersion)
             .filter(version -> !version.isBlank())
             .orElse(DEFAULT_API_VERSION);
-    }
-
-    private List<Server> servers() {
-        return List.of(
-            new Server()
-                .url("https://dev.api.university.neordinary.com")
-                .description("Development"),
-            new Server()
-                .url("http://localhost:" + serverPort)
-                .description("Local"),
-            new Server()
-                .url("https://api.university.neordinary.com")
-                .description("Production")
-        );
     }
 
     @Bean

@@ -11,6 +11,15 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum OrganizationErrorCode implements BaseCode {
 
+    STUDY_GROUP_LEARNING_TYPE_INVALID(HttpStatus.BAD_REQUEST, "ORGANIZATION-0097",
+        "기수의 학습 방식에 맞는 파트 또는 기본 트랙을 선택해주세요."),
+    STUDY_GROUP_TRACK_IMMUTABLE(HttpStatus.BAD_REQUEST, "ORGANIZATION-0098",
+        "생성한 스터디의 트랙은 변경할 수 없어요."),
+    STUDY_GROUP_TRACK_MEMBER_INVALID(HttpStatus.BAD_REQUEST, "ORGANIZATION-0099",
+        "해당 기수에서 트랙을 수강 중인 활동 상태의 챌린저만 참여할 수 있어요."),
+    STUDY_GROUP_MEMBER_ALREADY_IN_TRACK_STUDY(HttpStatus.CONFLICT, "ORGANIZATION-0100",
+        "동일한 기수와 트랙의 다른 스터디에 이미 참여한 멤버가 있어요."),
+
     GISU_REQUIRED(HttpStatus.BAD_REQUEST, "ORGANIZATION-0001", "기수를 선택해주세요."),
     ORGAN_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "ORGANIZATION-0002", "조직 이름을 입력해주세요."),
     SCHOOL_REQUIRED(HttpStatus.BAD_REQUEST, "ORGANIZATION-0003", "학교를 선택해주세요."),

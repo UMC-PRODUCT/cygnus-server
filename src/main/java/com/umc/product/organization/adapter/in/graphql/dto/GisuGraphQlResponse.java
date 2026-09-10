@@ -2,6 +2,7 @@ package com.umc.product.organization.adapter.in.graphql.dto;
 
 import java.time.Instant;
 
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuOrganizationInfo;
 
@@ -10,7 +11,8 @@ public record GisuGraphQlResponse(
     Long generation,
     String startAt,
     String endAt,
-    boolean active
+    boolean active,
+    GisuLearningType learningType
 ) {
 
     public static GisuGraphQlResponse from(GisuInfo info) {
@@ -19,7 +21,8 @@ public record GisuGraphQlResponse(
             info.generation(),
             format(info.startAt()),
             format(info.endAt()),
-            info.isActive()
+            info.isActive(),
+            info.learningType()
         );
     }
 
@@ -29,7 +32,8 @@ public record GisuGraphQlResponse(
             info.generation(),
             format(info.startAt()),
             format(info.endAt()),
-            info.isActive()
+            info.isActive(),
+            info.learningType()
         );
     }
 

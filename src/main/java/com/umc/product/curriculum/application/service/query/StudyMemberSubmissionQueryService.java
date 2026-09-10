@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.curriculum.application.port.in.query.GetStudyMemberSubmissionUseCase;
 import com.umc.product.curriculum.application.port.in.query.dto.CurriculumProjection;
 import com.umc.product.curriculum.application.port.in.query.dto.StudyMemberSubmissionInfo;
@@ -37,6 +38,8 @@ import com.umc.product.curriculum.domain.WeeklyCurriculum;
 import com.umc.product.curriculum.domain.enums.ChallengerWorkbookStatus;
 import com.umc.product.curriculum.domain.enums.OriginalWorkbookType;
 import com.umc.product.curriculum.domain.enums.SubmissionStatus;
+import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
+import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -77,22 +80,26 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
 
     @Override
     public List<StudyMemberSubmissionInfo> getStudyMemberSubmissions(StudyMemberSubmissionQuery query) {
-        List<StudyGroupMemberPageInfo> page = getStudyGroupUseCase.getVisibleStudyGroupMembers(
-            query.requesterMemberId(), query.studyGroupId(), query.cursor(), query.fetchSize()
-        );
+        List<StudyGroupMemberPageInfo> page = query.gisuId() == null
+            ? getStudyGroupUseCase.getVisibleStudyGroupMembers(
+                query.requesterMemberId(), query.studyGroupId(), query.cursor(), query.fetchSize())
+            : getStudyGroupUseCase.getVisibleStudyGroupMembers(
+                query.requesterMemberId(), query.studyGroupId(), query.cursor(), query.fetchSize(), query.gisuId());
         if (page.isEmpty()) {
             return List.of();
         }
 
-        Long activeGisuId = getGisuUseCase.getActiveGisuId();
-        Map<ChallengerPart, List<WeeklyCurriculum>> weeksByPart = resolveWeeksByPart(page, activeGisuId, query.weekNos());
-        WorkbookSnapshot snapshot = loadWorkbookSnapshot(page, weeksByPart);
+        Long gisuId = query.gisuId() == null ? getGisuUseCase.getActiveGisuId() : query.gisuId();
+        Map<LearningKey, List<WeeklyCurriculum>> weeksByLearning =
+            resolveWeeksByLearning(page, gisuId, query.weekNos());
+        WorkbookSnapshot snapshot = loadWorkbookSnapshot(page, weeksByLearning);
         Map<Long, MemberInfo> memberMap = getMemberUseCase.findAllByIds(
             page.stream().map(StudyGroupMemberPageInfo::memberId).collect(Collectors.toSet())
         );
 
         return page.stream()
-            .map(row -> toInfo(row, weeksByPart.getOrDefault(row.part(), List.of()), snapshot, memberMap))
+            .map(row -> toInfo(row,
+                weeksByLearning.getOrDefault(new LearningKey(row.part(), row.track()), List.of()), snapshot, memberMap))
             .toList();
     }
 
@@ -105,13 +112,34 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
      */
     @Override
     public List<Long> getAvailableWeekNos(Long studyGroupId) {
-        List<ChallengerPart> parts = studyGroupId != null
-            ? List.of(getStudyGroupUseCase.getById(studyGroupId).part())
-            : List.of(ChallengerPart.values());
+        return getAvailableWeekNos(studyGroupId, null);
+    }
 
-        Long activeGisuId = getGisuUseCase.getActiveGisuId();
-        return parts.stream()
-            .map(part -> loadCurriculumPort.findByGisuIdAndPart(activeGisuId, part))
+    @Override
+    public List<Long> getAvailableWeekNos(Long studyGroupId, Long requestedGisuId) {
+        Long gisuId = requestedGisuId == null ? getGisuUseCase.getActiveGisuId()
+            : getGisuUseCase.getById(requestedGisuId).gisuId();
+        List<LearningKey> learningKeys;
+        if (studyGroupId != null) {
+            var group = getStudyGroupUseCase.getById(studyGroupId);
+            if (requestedGisuId != null && !group.gisuId().equals(gisuId)) {
+                throw new CurriculumDomainException(CurriculumErrorCode.STUDY_GROUP_NOT_MATCHED);
+            }
+            learningKeys = List.of(new LearningKey(group.part(), group.track()));
+        } else {
+            learningKeys = new java.util.ArrayList<>();
+            for (ChallengerPart part : ChallengerPart.values()) {
+                learningKeys.add(new LearningKey(part, null));
+            }
+            for (ChallengerTrack track : ChallengerTrack.values()) {
+                if (track.isBasic()) {
+                    learningKeys.add(new LearningKey(null, track));
+                }
+            }
+        }
+
+        return learningKeys.stream()
+            .map(key -> findCurriculum(gisuId, key))
             .flatMap(Optional::stream)
             .flatMap(curriculum -> loadWeeklyCurriculumPort.findByCurriculumId(curriculum.id(), null).stream())
             .map(WeeklyCurriculum::getWeekNo)
@@ -126,20 +154,30 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
      * 주차 번호는 파트마다 별도 커리큘럼에 속하므로, 회장단처럼 여러 파트의 그룹을 한 번에 보는 경우 같은 "3주차"라도 파트별로 다른
      * {@code weekly_curriculum} 행이다. 파트 수만큼만 조회하며 페이지 크기와는 무관하다.
      */
-    private Map<ChallengerPart, List<WeeklyCurriculum>> resolveWeeksByPart(
+    private Map<LearningKey, List<WeeklyCurriculum>> resolveWeeksByLearning(
         List<StudyGroupMemberPageInfo> page, Long gisuId, List<Long> weekNos
     ) {
-        Map<ChallengerPart, List<WeeklyCurriculum>> weeksByPart = new LinkedHashMap<>();
+        Map<LearningKey, List<WeeklyCurriculum>> weeksByLearning = new LinkedHashMap<>();
 
-        for (ChallengerPart part : page.stream().map(StudyGroupMemberPageInfo::part).collect(Collectors.toSet())) {
-            Optional<CurriculumProjection> curriculum = loadCurriculumPort.findByGisuIdAndPart(gisuId, part);
+        for (LearningKey key : page.stream()
+            .map(row -> new LearningKey(row.part(), row.track())).collect(Collectors.toSet())) {
+            Optional<CurriculumProjection> curriculum = findCurriculum(gisuId, key);
             if (curriculum.isEmpty()) {
                 continue;
             }
-            weeksByPart.put(part, loadWeeks(curriculum.get().id(), weekNos));
+            weeksByLearning.put(key, loadWeeks(curriculum.get().id(), weekNos));
         }
 
-        return weeksByPart;
+        return weeksByLearning;
+    }
+
+    private Optional<CurriculumProjection> findCurriculum(Long gisuId, LearningKey key) {
+        return key.track() == null
+            ? loadCurriculumPort.findByGisuIdAndPart(gisuId, key.part())
+            : loadCurriculumPort.findByGisuIdAndTrack(gisuId, key.track());
+    }
+
+    private record LearningKey(ChallengerPart part, ChallengerTrack track) {
     }
 
     private List<WeeklyCurriculum> loadWeeks(Long curriculumId, List<Long> weekNos) {
@@ -156,9 +194,9 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
      */
     private WorkbookSnapshot loadWorkbookSnapshot(
         List<StudyGroupMemberPageInfo> page,
-        Map<ChallengerPart, List<WeeklyCurriculum>> weeksByPart
+        Map<LearningKey, List<WeeklyCurriculum>> weeksByLearning
     ) {
-        List<Long> weeklyCurriculumIds = weeksByPart.values().stream()
+        List<Long> weeklyCurriculumIds = weeksByLearning.values().stream()
             .flatMap(List::stream)
             .map(week -> week.getId())
             .distinct()
@@ -175,7 +213,7 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
             .collect(Collectors.toSet());
 
         List<ChallengerWorkbook> workbooks = loadChallengerWorkbookPort
-            .listByLookupKeys(buildLookupKeys(page, weeksByPart)).stream()
+            .listByLookupKeys(buildLookupKeys(page, weeksByLearning)).stream()
             .filter(workbook -> mainWorkbookIds.contains(workbook.getOriginalWorkbook().getId()))
             .toList();
 
@@ -204,10 +242,11 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
      */
     private List<ChallengerWorkbookLookupKey> buildLookupKeys(
         List<StudyGroupMemberPageInfo> page,
-        Map<ChallengerPart, List<WeeklyCurriculum>> weeksByPart
+        Map<LearningKey, List<WeeklyCurriculum>> weeksByLearning
     ) {
         return page.stream()
-            .flatMap(row -> weeksByPart.getOrDefault(row.part(), List.<WeeklyCurriculum>of()).stream()
+            .flatMap(row -> weeksByLearning
+                .getOrDefault(new LearningKey(row.part(), row.track()), List.<WeeklyCurriculum>of()).stream()
                 .map(week -> new ChallengerWorkbookLookupKey(row.memberId(), week.getId(), row.studyGroupId())))
             .toList();
     }
@@ -230,6 +269,7 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
             .studyGroupId(row.studyGroupId())
             .studyGroupName(row.studyGroupName())
             .part(row.part())
+            .track(row.track())
             .weeks(weeks.stream()
                 .sorted((left, right) -> Long.compare(left.getWeekNo(), right.getWeekNo()))
                 .map(week -> toWeeklyInfo(row, week, snapshot))

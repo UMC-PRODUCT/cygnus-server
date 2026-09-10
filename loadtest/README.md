@@ -1,23 +1,38 @@
 # 부하 테스트 — 구조와 결정 기록
 
-**실행하려면 `loadtest/RUNBOOK.md`** — 명령어는 전부 거기에만 있다. 이 문서는 "왜 이렇게 생겼나"의 기록이다.
+실행 중인 앱의 주소를 지정해 k6 시나리오를 실행한다.
 
 현재 이 디렉터리에는 **두 개의 하네스**가 공존한다:
 
-1. **리그 하네스** (`k6/` + `terraform/` + `scripts/`) — AWS ephemeral 리그에서 breakpoint·spike 등 한계 실측. 이 문서의 본체.
+1. **공통 k6 하네스** (`k6/` + `scripts/prepare-data.sh`) — 지정한 앱에서 breakpoint·spike 등 한계 실측. 이 문서의 본체.
 2. **notice 전/후 비교 하네스** (`run.sh` + `lib/` + `scenarios/notice/`) — 로컬에서 notice 성능 리팩토링 전/후를 동일 부하로 비교하는 미니 하네스. [아래 별도 섹션](#notice-전후-비교-하네스-runsh) 참조.
 
-두 하네스는 진입점·시나리오·결과 기록 방식이 다르다. 시나리오가 늘어나면 리그 하네스(`k6/`) 쪽으로 통합하는 것이 방향이다.
+두 하네스는 진입점·시나리오·결과 기록 방식이 다르다. 시나리오가 늘어나면 공통 k6 하네스(`k6/`) 쪽으로 통합하는 것이 방향이다.
 
 | 위치 | 역할 |
 |------|------|
-| `loadtest/RUNBOOK.md` | 리그 하네스 실행 절차 (명령어 복붙, 트러블슈팅) |
-| `loadtest/k6/` | 리그용 k6 실행 코드 (구조는 `loadtest/k6/README.md`) |
-| `loadtest/terraform/` | 리그 인프라 (SUT·generator·monitoring·RDS·ALB) |
+| `loadtest/k6/` | 공통 k6 실행 코드 (구조는 `loadtest/k6/README.md`) |
+| `loadtest/scripts/prepare-data.sh` | API 시딩 후 `seed.json` 생성 |
+| `loadtest/scripts/new-run.sh` | 실행 기록 템플릿 생성 |
 | `loadtest/run.sh` · `lib/` · `scenarios/notice/` | notice 전/후 비교 미니 하네스 (로컬 실행) |
 | `loadtest/compare.sh` | 두 실행(summary.json)의 p95/p99/에러율/RPS 비교 (jq 필요) |
 | `docs/loadtest/runs/` | 실행 기록 (가설→환경→결과→결론) |
 | `docs/adr/013` | 도구 선택·시나리오 우선순위의 원 전략 |
+
+## 공통 k6 실행
+
+저장소 루트에서 실행한다. 시딩이 필요한 시나리오는 테스트 API에 접근할 수 있는 앱 주소로 데이터를 먼저 준비한다.
+
+```bash
+SUT_URL=http://localhost:8080 loadtest/scripts/prepare-data.sh
+
+cd loadtest/k6
+mkdir -p out
+BASE_URL=http://localhost:8080 PROFILE=smoke SCENARIO=health-check k6 run script.js
+```
+
+`health-check`는 시딩 없이 실행할 수 있다. `BASE_URL`을 대상 앱 주소로 바꾸고,
+`PROFILE`, `SCENARIO`, `RATE`, `DURATION`으로 부하를 선택한다. 요약은 `out/last-summary.json`에 저장된다.
 
 ## 핵심 결정 기록
 
@@ -28,12 +43,6 @@
 - 비교: k6 vs nGrinder vs Gatling vs Locust (ADR-013)
 - 결정: **k6**
 - 이유: 본 시스템 spike 는 수백~수천 RPS 라 단일 노드로 충분. 코드 기반 시나리오 + thresholds 로 SLO 를 스크립트에 명시.
-
-### 인프라 위치
-
-- 비교: 배포 env(infra/terraform) 재사용 vs 별도 ephemeral 리그
-- 결정: **`loadtest/terraform` 분리, local backend**
-- 이유: 쓰고 통째로 destroy 하는 소모품이라 배포 env 의 state 경계·S3 backend 와 섞이면 안 된다. SUT 스펙은 prod 와 동일 고정(t4g.small)이 측정의 전제.
 
 ### 시나리오 선택
 
@@ -53,13 +62,12 @@
 
 ### 시딩
 
-- 비교: ① api 시더(SeedController) ② 손으로 SQL/pg_dump 아티팩트 ③ Spring 벌크 시더(JDBC) ④ RDS snapshot
-- 결정: **① api(기본, ~수천) + ③ bulk(10만+) + ④ snapshot(opt-in 캐시). ② pg_dump 는 폐기.**
+- 비교: ① api 시더(SeedController) ② 손으로 SQL/pg_dump 아티팩트 ③ Spring 벌크 시더(JDBC)
+- 결정: **① api(기본, ~수천) + ③ bulk(10만+). ② pg_dump 는 폐기.**
 - 이유:
   - 원칙은 **생성기(코드)가 원천, 데이터 파일은 캐시** — 덤프/INSERT 파일을 관리 원천으로 삼으면 스키마 변경마다 조용히 썩는다.
   - api 시더는 도메인 가드를 통과해 스키마 변경에 자동 대응하지만 HTTP 왕복이라 10만+ 은 비현실적.
   - bulk 는 앱 이미지를 `seeder` 프로파일로 1회 실행해 JDBC 배치로 적재 — 전 엔티티가 IDENTITY 라 JPA 배치가 무력화되므로 JdbcTemplate 직행. 고정 seed(RNG)로 같은 seed = 같은 데이터(실행 간 비교 가능), 상위 5개 학교 50% 스큐(균등 데이터는 결과를 낙관 왜곡). 빈 DB 전제.
-  - snapshot 은 bulk 로 구운 DB 를 얼린 캐시일 뿐 — 재굽기 트리거는 Flyway/시드 모양 변경.
 - 주의: `BulkSeedJdbcAdapter` 의 SQL 은 도메인 가드를 우회한 스키마 강결합(속도 트레이드오프) — **Flyway 마이그레이션 PR 에서 같이 검토.**
 
 ### seed.json 계약

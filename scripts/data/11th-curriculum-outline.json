@@ -1,0 +1,223 @@
+{
+  "generation": 11,
+  "curricula": [
+    {
+      "track": "PLAN",
+      "weeks": [
+        {
+          "weekNo": 0,
+          "title": "서비스 기획 입문"
+        },
+        {
+          "weekNo": 1,
+          "title": "문제 정의와 리서치 (1)"
+        },
+        {
+          "weekNo": 2,
+          "title": "문제 정의와 리서치 (2)"
+        },
+        {
+          "weekNo": 3,
+          "title": "서비스 정의와 비즈니스 모델링"
+        },
+        {
+          "weekNo": 4,
+          "title": "기획 산출물 (1) UX 설계"
+        },
+        {
+          "weekNo": 5,
+          "title": "기획 산출물 (2) 상세 기능 정의"
+        },
+        {
+          "weekNo": 6,
+          "title": "기획 산출물 (3) 기획 문서 작성"
+        },
+        {
+          "weekNo": 7,
+          "title": "기획 산출물 (4) 화면 설계"
+        },
+        {
+          "weekNo": 8,
+          "title": "프로젝트 관리 및 협업"
+        },
+        {
+          "weekNo": 9,
+          "title": "서비스 품질 검증"
+        },
+        {
+          "weekNo": 10,
+          "title": "그로스 전략 설계"
+        }
+      ]
+    },
+    {
+      "track": "DESIGN",
+      "weeks": [
+        {
+          "weekNo": 0,
+          "title": "피그마 기초 학습"
+        },
+        {
+          "weekNo": 1,
+          "title": "UI 디자인 입문: 클론 디자인 App & Web"
+        },
+        {
+          "weekNo": 2,
+          "title": "리디자인: Pain Point 분석"
+        },
+        {
+          "weekNo": 3,
+          "title": "리디자인: Solution 탐구"
+        },
+        {
+          "weekNo": 4,
+          "title": "와이어프레임 & 디자인 시스템 구축"
+        },
+        {
+          "weekNo": 5,
+          "title": "UI 디자인 진행"
+        },
+        {
+          "weekNo": 6,
+          "title": "UI 디자인 확장 & 포트폴리오 제작"
+        },
+        {
+          "weekNo": 7,
+          "title": "프로토타입 제작 & 복습 가이드"
+        },
+        {
+          "weekNo": 8,
+          "title": "매칭 프로젝트 디자인 (1)"
+        },
+        {
+          "weekNo": 9,
+          "title": "매칭 프로젝트 디자인 (2)"
+        },
+        {
+          "weekNo": 10,
+          "title": "매칭 프로젝트 디자인 (3)"
+        },
+        {
+          "weekNo": 1,
+          "isExtra": true,
+          "title": "협업 가이드"
+        },
+        {
+          "weekNo": 2,
+          "isExtra": true,
+          "title": "디자인 인사이트"
+        }
+      ]
+    },
+    {
+      "track": "MOBILE_PRODUCT_ENGINEER",
+      "weeks": [
+        {
+          "weekNo": 1,
+          "title": "데이터 모델링과 앱 UI 기초"
+        },
+        {
+          "weekNo": 2,
+          "title": "SQL 데이터 조작과 사용자 입력 폼"
+        },
+        {
+          "weekNo": 3,
+          "title": "서버 환경 세팅과 앱 화면 내비게이션"
+        },
+        {
+          "weekNo": 4,
+          "title": "ORM 기반 CRUD와 비동기 UI 처리"
+        },
+        {
+          "weekNo": 5,
+          "title": "Public API 설계와 앱 아키텍처 정립"
+        },
+        {
+          "weekNo": 6,
+          "title": "CRUD API 구축과 네트워크 통신"
+        },
+        {
+          "weekNo": 7,
+          "title": "JWT 인증/인가와 사용자 토큰 관리"
+        },
+        {
+          "weekNo": 8,
+          "title": "핵심 비즈니스 로직과 데이터 상태 관리"
+        },
+        {
+          "weekNo": 9,
+          "title": "API 명세 확정과 심화 기능 연동"
+        },
+        {
+          "weekNo": 10,
+          "title": "클라우드 환경 분리 배포와 앱 출시"
+        }
+      ]
+    },
+    {
+      "track": "WEB_PRODUCT_ENGINEER",
+      "weeks": [
+        {
+          "weekNo": 1,
+          "title": "데이터 모델링과 타입 시스템 기초"
+        },
+        {
+          "weekNo": 2,
+          "title": "SQL 데이터 조작과 React UI 기초"
+        },
+        {
+          "weekNo": 3,
+          "title": "서버 환경 세팅과 웹 화면 라우팅"
+        },
+        {
+          "weekNo": 4,
+          "title": "ORM 기반 CRUD와 클라이언트 상태 관리"
+        },
+        {
+          "weekNo": 5,
+          "title": "Public API 구축과 웹 API 연동"
+        },
+        {
+          "weekNo": 6,
+          "title": "CRUD API와 서버 상태 관리"
+        },
+        {
+          "weekNo": 7,
+          "title": "JWT 인증/인가와 사용자 인증 연동"
+        },
+        {
+          "weekNo": 8,
+          "title": "핵심 비즈니스 로직과 사용자 기능 연동"
+        },
+        {
+          "weekNo": 9,
+          "title": "API 안정화와 Next.js 웹 개발"
+        },
+        {
+          "weekNo": 10,
+          "title": "운영 환경 분리와 웹 서비스 배포"
+        }
+      ]
+    }
+  ],
+  "deferredCurricula": [
+    {
+      "track": "INFRA_PLUS",
+      "weeks": [
+        {
+          "weekNo": 1,
+          "title": "신뢰할 수 있는 배포 파이프라인"
+        },
+        {
+          "weekNo": 2,
+          "title": "관측 가능한 시스템 만들기"
+        },
+        {
+          "weekNo": 3,
+          "title": "장애를 견디는 시스템 만들기"
+        }
+      ]
+    }
+  ],
+  "scheduleStatus": "TEMPORARY_GISU_PERIOD"
+}

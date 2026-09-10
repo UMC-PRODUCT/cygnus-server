@@ -26,9 +26,6 @@ Accepted
 
 ### 현재 dead code 목록
 
-[docs/analysis/notification-fcm-current-state.md](../analysis/notification-fcm-current-state.md)의
-분석을 따른다.
-
 **도메인/응용 레이어**
 
 - `notification/domain/FcmOutbox.java` — 엔티티 (모든 row가 무의미한 상태)
@@ -265,7 +262,6 @@ src/test/java/com/umc/product/notification/
 
 - [ADR-018: Spring Event Publisher 추상화](./018-abstract-spring-event-publisher-for-future-broker.md)
 - [ADR-019: Transactional Event Outbox 도입](./019-introduce-transactional-event-outbox.md)
-- [notification 도메인 분석 보고서](../analysis/notification-fcm-current-state.md)
 - Flyway 히스토리:
   - `V2026.03.06.00.00__create_fcm_outbox.sql`
   - `V2026.03.17.00.00__create_fcm_token_topic.sql`
