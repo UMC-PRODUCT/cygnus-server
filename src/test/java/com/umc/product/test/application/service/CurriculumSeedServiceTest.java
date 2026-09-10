@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -42,6 +43,9 @@ import com.umc.product.curriculum.application.port.in.command.dto.curriculum.Cre
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.ChangeOriginalWorkbookStatusCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.CreateOriginalWorkbookCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.CreateOriginalWorkbookMissionCommand;
+import com.umc.product.curriculum.application.port.in.query.GetCurriculumUseCase;
+import com.umc.product.curriculum.application.port.in.query.dto.CurriculumOverviewInfo;
+import com.umc.product.curriculum.application.port.in.query.dto.CurriculumOverviewInfo.WeeklyCurriculumOverviewInfo;
 import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
 import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -58,6 +62,8 @@ class CurriculumSeedServiceTest {
     GetGisuUseCase getGisuUseCase;
     @Mock
     ManageCurriculumUseCase manageCurriculumUseCase;
+    @Mock
+    GetCurriculumUseCase getCurriculumUseCase;
     @Mock
     ManageWeeklyCurriculumUseCase manageWeeklyCurriculumUseCase;
     @Mock
@@ -334,6 +340,77 @@ class CurriculumSeedServiceTest {
         assertThat(captor.getValue().track()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
         assertThat(captor.getValue().part()).isNull();
         verify(manageOriginalWorkbookUseCase).changeStatusForRelease(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(GisuLearningType.class)
+    @DisplayName("주차가 없는 기존 커리큘럼은 재사용하고 신규 생성 수에 포함하지 않는다")
+    void 빈_커리큘럼_재사용(GisuLearningType learningType) {
+        // Given
+        ChallengerPart part = learningType == GisuLearningType.PART ? ChallengerPart.WEB : null;
+        ChallengerTrack track = learningType == GisuLearningType.TRACK ? ChallengerTrack.WEB_PRODUCT_ENGINEER : null;
+        given(getGisuUseCase.getById(11L))
+            .willReturn(new GisuInfo(11L, 11L, null, null, true, learningType));
+        given(manageCurriculumUseCase.create(any()))
+            .willThrow(new CurriculumDomainException(CurriculumErrorCode.CURRICULUM_ALREADY_EXISTS));
+        given(getCurriculumUseCase.getCurriculumOverview(11L, part, track, null))
+            .willReturn(new CurriculumOverviewInfo(100L, "직접 등록한 커리큘럼", List.of(), part, track));
+        given(manageWeeklyCurriculumUseCase.createBulk(any())).willReturn(List.of(200L, 201L));
+        given(manageOriginalWorkbookUseCase.createBulk(any())).willReturn(List.of(300L, 301L));
+
+        // When
+        SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
+            11L, 2, 0, part == null ? null : List.of(part), track == null ? null : List.of(track), null));
+
+        // Then
+        assertThat(result.createdCurriculumIds()).isEmpty();
+        assertThat(result.curriculumFailed()).isZero();
+        assertThat(result.createdWeeklyCurriculumIds()).containsExactly(200L, 201L);
+        assertThat(result.createdOriginalWorkbookIds()).containsExactly(300L, 301L);
+        verify(dummyCurriculumFactory).nextWeeklyCurriculumCommand(100L, 1L);
+        verify(dummyCurriculumFactory).nextWeeklyCurriculumCommand(100L, 2L);
+        verify(manageCurriculumUseCase, never()).edit(any());
+    }
+
+    @Test
+    @DisplayName("이미 주차가 있는 커리큘럼은 실패로 집계하고 주차와 워크북을 추가하지 않는다")
+    void 기존_주차가_있는_커리큘럼_재시딩_거부() {
+        // Given
+        given(manageCurriculumUseCase.create(any()))
+            .willThrow(new CurriculumDomainException(CurriculumErrorCode.CURRICULUM_ALREADY_EXISTS));
+        given(getCurriculumUseCase.getCurriculumOverview(9L, ChallengerPart.WEB, null, null))
+            .willReturn(new CurriculumOverviewInfo(100L, "기존 커리큘럼", List.of(
+                new WeeklyCurriculumOverviewInfo(200L, 1L, "직접 등록한 주차", false, null, null))));
+
+        // When
+        SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
+            9L, 2, 1, List.of(ChallengerPart.WEB), null, null));
+
+        // Then
+        assertThat(result.curriculumFailed()).isEqualTo(1);
+        assertThat(result.createdCurriculumIds()).isEmpty();
+        assertThat(result.createdWeeklyCurriculumIds()).isEmpty();
+        assertThat(result.createdOriginalWorkbookIds()).isEmpty();
+        verifyNoInteractions(manageWeeklyCurriculumUseCase, manageOriginalWorkbookUseCase,
+            manageOriginalWorkbookMissionUseCase);
+    }
+
+    @Test
+    @DisplayName("중복 외 커리큘럼 생성 오류는 기존 커리큘럼 조회로 우회하지 않는다")
+    void 중복_외_생성_오류는_재사용하지_않음() {
+        // Given
+        given(manageCurriculumUseCase.create(any()))
+            .willThrow(new CurriculumDomainException(CurriculumErrorCode.INVALID_CURRICULUM_LEARNING_TYPE));
+
+        // When
+        SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
+            9L, 2, 1, List.of(ChallengerPart.WEB), null, null));
+
+        // Then
+        assertThat(result.curriculumFailed()).isEqualTo(1);
+        assertThat(result.createdCurriculumIds()).isEmpty();
+        verifyNoInteractions(getCurriculumUseCase, manageWeeklyCurriculumUseCase,
+            manageOriginalWorkbookUseCase, manageOriginalWorkbookMissionUseCase);
     }
 
     @ParameterizedTest

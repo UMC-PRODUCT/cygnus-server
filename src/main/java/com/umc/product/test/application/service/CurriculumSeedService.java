@@ -22,6 +22,7 @@ import com.umc.product.curriculum.application.port.in.command.dto.curriculum.Cre
 import com.umc.product.curriculum.application.port.in.command.dto.curriculum.CreateWeeklyCurriculumCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.ChangeOriginalWorkbookStatusCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.CreateOriginalWorkbookCommand;
+import com.umc.product.curriculum.application.port.in.query.GetCurriculumUseCase;
 import com.umc.product.curriculum.domain.enums.OriginalWorkbookStatus;
 import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
 import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
@@ -45,6 +46,7 @@ import lombok.extern.slf4j.Slf4j;
  * </pre>
  * 선택적으로 {@code releaseRequesterMemberId} 가 지정되면 모든 워크북을 READY → RELEASED 로
  * 전환해 챌린저가 즉시 배포받을 수 있도록 한다.
+ * 기존 상위 커리큘럼에 주차가 없으면 제목을 유지한 채 재사용하고, 주차가 있으면 중복 시딩을 거부한다.
  * <p>
  * Hexagonal 원칙을 따라 다른 도메인의 UseCase 만 호출하며, 각 Create 호출은 자체 트랜잭션
  * (Curriculum/Workbook/Mission CommandService 가 모두 {@code @Transactional}) 으로 격리된다.
@@ -67,6 +69,7 @@ public class CurriculumSeedService implements SeedCurriculumUseCase {
     private final DummyCurriculumFactory dummyCurriculumFactory;
     private final GetGisuUseCase getGisuUseCase;
     private final ManageCurriculumUseCase manageCurriculumUseCase;
+    private final GetCurriculumUseCase getCurriculumUseCase;
     private final ManageWeeklyCurriculumUseCase manageWeeklyCurriculumUseCase;
     private final ManageOriginalWorkbookUseCase manageOriginalWorkbookUseCase;
     private final ManageOriginalWorkbookMissionUseCase manageOriginalWorkbookMissionUseCase;
@@ -88,12 +91,10 @@ public class CurriculumSeedService implements SeedCurriculumUseCase {
         Counters counters = new Counters();
 
         for (CreateCurriculumCommand curriculum : curricula) {
-            Long curriculumId = tryCreateCurriculum(curriculum, counters);
+            Long curriculumId = tryPrepareCurriculum(curriculum, counters);
             if (curriculumId == null) {
                 continue;
             }
-            counters.curriculumIds.add(curriculumId);
-
             List<Long> weeklyIds = tryCreateWeeklyCurriculaBulk(curriculumId, weeks, counters);
             if (weeklyIds.isEmpty()) {
                 continue;
@@ -168,14 +169,32 @@ public class CurriculumSeedService implements SeedCurriculumUseCase {
             .toList();
     }
 
-    private Long tryCreateCurriculum(CreateCurriculumCommand command, Counters counters) {
+    private Long tryPrepareCurriculum(CreateCurriculumCommand command, Counters counters) {
         try {
-            return manageCurriculumUseCase.create(command);
+            return createOrReuseEmptyCurriculum(command, counters);
         } catch (Exception e) {
             counters.curriculumFailed++;
             log.error("curriculum seed: create curriculum failed (gisuId={}, part={}, track={}): {}",
                 command.gisuId(), command.part(), command.track(), e.toString());
             return null;
+        }
+    }
+
+    private Long createOrReuseEmptyCurriculum(CreateCurriculumCommand command, Counters counters) {
+        try {
+            Long curriculumId = manageCurriculumUseCase.create(command);
+            counters.curriculumIds.add(curriculumId);
+            return curriculumId;
+        } catch (CurriculumDomainException exception) {
+            if (exception.getBaseCode() != CurriculumErrorCode.CURRICULUM_ALREADY_EXISTS) {
+                throw exception;
+            }
+            var existing = getCurriculumUseCase.getCurriculumOverview(
+                command.gisuId(), command.part(), command.track(), null);
+            if (!existing.weeks().isEmpty()) {
+                throw exception;
+            }
+            return existing.curriculumId();
         }
     }
 

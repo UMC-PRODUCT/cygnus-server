@@ -21,6 +21,8 @@ import com.umc.product.authorization.application.port.in.query.CheckChallengerAu
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.common.domain.enums.GisuLearningType;
+import com.umc.product.curriculum.application.port.in.command.ManageCurriculumUseCase;
+import com.umc.product.curriculum.application.port.in.command.dto.curriculum.CreateCurriculumCommand;
 import com.umc.product.curriculum.application.port.in.query.GetCurriculumUseCase;
 import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookMissionPort;
 import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookPort;
@@ -47,6 +49,7 @@ class TrackSeedIntegrationTest extends IntegrationTestSupport {
     @Autowired private GetChallengerUseCase getChallengerUseCase;
     @Autowired private CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
     @Autowired private GetCurriculumUseCase getCurriculumUseCase;
+    @Autowired private ManageCurriculumUseCase manageCurriculumUseCase;
     @Autowired private LoadOriginalWorkbookPort loadOriginalWorkbookPort;
     @Autowired private LoadOriginalWorkbookMissionPort loadOriginalWorkbookMissionPort;
 
@@ -255,5 +258,53 @@ class TrackSeedIntegrationTest extends IntegrationTestSupport {
             assertThat(loadOriginalWorkbookMissionPort.findByOriginalWorkbookId(workbook.getId()))
                 .singleElement().satisfies(mission -> assertThat(mission.isNecessary()).isTrue());
         }
+    }
+
+    @Test
+    @DisplayName("미리 등록한 Track 커리큘럼의 제목을 보존하며 주차를 시딩하고 재시딩은 거부한다")
+    void seedExistingEmptyTrackCurriculumWithoutOverwritingContent() throws Exception {
+        // Given
+        Long curriculumId = manageCurriculumUseCase.create(CreateCurriculumCommand.builder()
+            .gisuId(gisuId).track(ChallengerTrack.WEB_PRODUCT_ENGINEER).title("운영진이 준비한 웹 커리큘럼").build());
+        String request = """
+            {"gisuId": %d, "tracks": ["WEB_PRODUCT_ENGINEER"],
+             "weeksPerCurriculum": 2, "missionsPerWorkbook": 1}
+            """.formatted(gisuId);
+
+        // When
+        var response = mockMvc.perform(post("/test/seed/curriculum")
+                .contentType(MediaType.APPLICATION_JSON).content(request))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.createdCurriculumIds.length()").value(0))
+            .andExpect(jsonPath("$.result.createdWeeklyCurriculumIds.length()").value(2))
+            .andExpect(jsonPath("$.result.createdOriginalWorkbookIds.length()").value(2))
+            .andExpect(jsonPath("$.result.createdMissionIds.length()").value(2))
+            .andExpect(jsonPath("$.result.curriculumFailed").value(0))
+            .andReturn().getResponse();
+
+        // Then
+        var curriculum = getCurriculumUseCase.getCurriculumOverview(
+            gisuId, null, ChallengerTrack.WEB_PRODUCT_ENGINEER, null);
+        assertThat(curriculum.curriculumId()).isEqualTo(curriculumId);
+        assertThat(curriculum.title()).isEqualTo("운영진이 준비한 웹 커리큘럼");
+        var weeklyIds = curriculum.weeks().stream().map(week -> week.weeklyCurriculumId()).toList();
+        JsonNode result = objectMapper.readTree(response.getContentAsString()).path("result");
+        for (JsonNode workbookId : result.path("createdOriginalWorkbookIds")) {
+            var workbook = loadOriginalWorkbookPort.getById(workbookId.asLong());
+            assertThat(weeklyIds).contains(workbook.getWeeklyCurriculum().getId());
+            assertThat(loadOriginalWorkbookMissionPort.findByOriginalWorkbookId(workbook.getId())).hasSize(1);
+        }
+
+        // When
+        mockMvc.perform(post("/test/seed/curriculum")
+                .contentType(MediaType.APPLICATION_JSON).content(request))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.curriculumFailed").value(1))
+            .andExpect(jsonPath("$.result.createdWeeklyCurriculumIds.length()").value(0))
+            .andExpect(jsonPath("$.result.createdOriginalWorkbookIds.length()").value(0));
+
+        // Then
+        assertThat(getCurriculumUseCase.getCurriculumOverview(
+            gisuId, null, ChallengerTrack.WEB_PRODUCT_ENGINEER, null)).isEqualTo(curriculum);
     }
 }
