@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -14,15 +15,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.TestPropertySource;
 
+import com.p6spy.engine.wrapper.P6Proxy;
 import com.umc.product.support.PersistenceAdapterTest;
 
 @PersistenceAdapterTest
-@TestPropertySource(properties = "decorator.datasource.p6spy.enable-logging=false")
 @DisplayName("챌린저 코드의 복수 트랙 Flyway 마이그레이션")
 class ChallengerRecordTracksMigrationTest {
 
@@ -107,7 +107,10 @@ class ChallengerRecordTracksMigrationTest {
         // When / Then
         assertThatThrownBy(() -> executeSql(
             "UPDATE challenger_record SET tracks = " + tracksSql + " WHERE code = 'STAFF1'"))
-            .isInstanceOf(DataAccessException.class);
+            .isInstanceOfSatisfying(DataIntegrityViolationException.class, exception -> {
+                SQLException sqlException = (SQLException)exception.getMostSpecificCause();
+                assertThat(sqlException.getSQLState()).isEqualTo(tracksSql.equals("NULL") ? "23502" : "23514");
+            });
         assertThat(jdbcTemplate.queryForObject(
             "SELECT tracks::TEXT FROM challenger_record WHERE code = 'STAFF1'", String.class)).isEqualTo("{}");
     }
@@ -122,7 +125,7 @@ class ChallengerRecordTracksMigrationTest {
         // When / Then
         assertThatThrownBy(() -> executeSql("""
             UPDATE challenger_record SET chapter_id = NULL, challenger_role_type = %s WHERE code = 'TRACK1'
-            """.formatted(roleSql))).isInstanceOf(DataAccessException.class);
+            """.formatted(roleSql))).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(jdbcTemplate.queryForObject(
             "SELECT chapter_id FROM challenger_record WHERE code = 'TRACK1'", Long.class)).isEqualTo(2L);
     }
@@ -140,7 +143,10 @@ class ChallengerRecordTracksMigrationTest {
         jdbcTemplate.execute((ConnectionCallback<Void>) connection -> {
             var savepoint = connection.setSavepoint();
             try (var statement = connection.createStatement()) {
-                statement.execute(sql);
+                // DB 제약 검증이 전역 P6Spy 포매터의 배열 SQL 처리에 영향받지 않도록 실제 JDBC로 실행한다.
+                Statement jdbcStatement = statement instanceof P6Proxy proxy
+                    ? (Statement)proxy.unwrapP6SpyProxy() : statement;
+                jdbcStatement.execute(sql);
             } catch (SQLException | RuntimeException exception) {
                 connection.rollback(savepoint);
                 throw exception;
