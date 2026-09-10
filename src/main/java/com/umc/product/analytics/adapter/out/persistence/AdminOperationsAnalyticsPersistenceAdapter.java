@@ -11,8 +11,14 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsPo
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsSchoolsInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsSignupsInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsStudyGroupsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceChaptersInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendancePartsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceTagsInfo;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsAnalyticsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendanceChaptersPort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendancePartsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendancePort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendanceTagsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsPointsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsSchoolsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsSignupsPort;
@@ -28,6 +34,9 @@ public class AdminOperationsAnalyticsPersistenceAdapter implements
     LoadAdminOperationsSchoolsPort,
     LoadAdminOperationsPointsPort,
     LoadAdminOperationsAttendancePort,
+    LoadAdminOperationsAttendanceChaptersPort,
+    LoadAdminOperationsAttendanceTagsPort,
+    LoadAdminOperationsAttendancePartsPort,
     LoadAdminOperationsStudyGroupsPort,
     LoadAdminOperationsSignupsPort {
 
@@ -64,5 +73,20 @@ public class AdminOperationsAnalyticsPersistenceAdapter implements
     @Override
     public AdminOperationsSignupsInfo getOperationsSignups(AdminAnalyticsScope scope, Instant from, Instant to) {
         return queryRepository.getOperationsSignups(scope, from, to);
+    }
+
+    @Override
+    public AdminOperationsAttendanceChaptersInfo getAttendanceByChapters(AdminAnalyticsScope scope, Instant from, Instant to) {
+        return queryRepository.getAttendanceByChapters(scope, from, to);
+    }
+
+    @Override
+    public AdminOperationsAttendanceTagsInfo getAttendanceByTags(AdminAnalyticsScope scope, Instant from, Instant to) {
+        return queryRepository.getAttendanceByTags(scope, from, to);
+    }
+
+    @Override
+    public AdminOperationsAttendancePartsInfo getAttendanceByParts(AdminAnalyticsScope scope, Instant from, Instant to) {
+        return queryRepository.getAttendanceByParts(scope, from, to);
     }
 }

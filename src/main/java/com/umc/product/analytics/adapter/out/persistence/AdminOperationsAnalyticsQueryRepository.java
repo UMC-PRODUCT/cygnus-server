@@ -17,11 +17,17 @@ import org.springframework.stereotype.Repository;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.DateTimePath;
+import com.querydsl.core.types.dsl.EnumPath;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceChaptersInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendancePartsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceTagsInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsPointsInfo;
@@ -42,6 +48,7 @@ import com.umc.product.organization.domain.QStudyGroupSchedule;
 import com.umc.product.schedule.domain.QSchedule;
 import com.umc.product.schedule.domain.QScheduleParticipant;
 import com.umc.product.schedule.domain.enums.AttendanceStatus;
+import com.umc.product.schedule.domain.enums.ScheduleTag;
 
 import lombok.RequiredArgsConstructor;
 
@@ -659,5 +666,190 @@ public class AdminOperationsAnalyticsQueryRepository {
         private static SchoolKey from(Tuple row, QSchool school) {
             return new SchoolKey(row.get(school.id), row.get(school.name));
         }
+    }
+
+    public AdminOperationsAttendanceChaptersInfo getAttendanceByChapters(AdminAnalyticsScope scope, Instant from, Instant to) {
+        QScheduleParticipant participant = new QScheduleParticipant("chapParticipant");
+        QSchedule schedule = new QSchedule("chapSchedule");
+        QMember scheduleAuthor = new QMember("chapScheduleAuthor");
+        QChapterSchool authorCs = new QChapterSchool("chapAuthorCs");
+        QChapter authorChapter = new QChapter("chapAuthorChapter");
+        QMember participantMember = new QMember("chapParticipantMember");
+        QChapterSchool participantCs = new QChapterSchool("chapParticipantCs");
+        QChapter participantChapter = new QChapter("chapParticipantChapter");
+        QSchool participantSchool = new QSchool("chapParticipantSchool");
+
+        NumberExpression<Long> totalExpr = participant.id.count();
+        NumberExpression<Long> attendedExpr = new CaseBuilder()
+            .when(participant.attendance.status.in(
+                AttendanceStatus.PRESENT, AttendanceStatus.LATE, AttendanceStatus.EXCUSED
+            ))
+            .then(1L)
+            .otherwise(0L)
+            .sum();
+
+        List<Tuple> rows = queryFactory
+            .select(
+                participantChapter.id,
+                participantChapter.name,
+                participantSchool.id,
+                participantSchool.name,
+                totalExpr,
+                attendedExpr
+            )
+            .from(participant)
+            .join(participant.schedule, schedule)
+            .join(scheduleAuthor).on(scheduleAuthor.id.eq(schedule.authorMemberId))
+            .leftJoin(authorCs).on(authorCs.school.id.eq(scheduleAuthor.schoolId))
+            .leftJoin(authorChapter).on(authorChapter.id.eq(authorCs.chapter.id)
+                .and(authorChapter.gisu.id.eq(scope.gisuId())))
+            .join(participantMember).on(participantMember.id.eq(participant.memberId))
+            .leftJoin(participantCs).on(participantCs.school.id.eq(participantMember.schoolId))
+            .leftJoin(participantChapter).on(participantChapter.id.eq(participantCs.chapter.id)
+                .and(participantChapter.gisu.id.eq(scope.gisuId())))
+            .leftJoin(participantSchool).on(participantSchool.id.eq(participantMember.schoolId))
+            .where(
+                scheduleAuthorScopeCondition(scope, scheduleAuthor, authorChapter)
+                    .and(chapterMatchedOrNoMapping(authorCs, authorChapter))
+                    .and(chapterMatchedOrNoMapping(participantCs, participantChapter))
+                    .and(periodCondition(schedule.startsAt, from, to))
+                    .and(schedule.policy.attendanceGraceMinutes.isNotNull())
+            )
+            .groupBy(
+                participantChapter.id, participantChapter.name,
+                participantSchool.id, participantSchool.name
+            )
+            .orderBy(participantChapter.name.asc(), participantSchool.name.asc())
+            .fetch();
+
+        Map<ChapterKey, Map<SchoolKey, long[]>> chapterMap = new LinkedHashMap<>();
+        for (Tuple row : rows) {
+            ChapterKey chapterKey = ChapterKey.from(row, participantChapter);
+            SchoolKey schoolKey = SchoolKey.from(row, participantSchool);
+            long total = defaultLong(row.get(totalExpr));
+            long attended = defaultLong(row.get(attendedExpr));
+            chapterMap.computeIfAbsent(chapterKey, k -> new LinkedHashMap<>())
+                .put(schoolKey, new long[]{total, attended});
+        }
+
+        List<AdminOperationsAttendanceChaptersInfo.ChapterAttendanceInfo> chapters = chapterMap.entrySet().stream()
+            .map(chapterEntry -> {
+                List<AdminOperationsAttendanceChaptersInfo.SchoolAttendanceInfo> schools = chapterEntry.getValue()
+                    .entrySet().stream()
+                    .map(e -> AdminOperationsAttendanceChaptersInfo.SchoolAttendanceInfo.of(
+                        e.getKey().schoolId(), e.getKey().schoolName(), e.getValue()[0], e.getValue()[1]
+                    ))
+                    .toList();
+                long chapterTotal = schools.stream().mapToLong(AdminOperationsAttendanceChaptersInfo.SchoolAttendanceInfo::totalParticipantCount).sum();
+                long chapterAttended = schools.stream().mapToLong(AdminOperationsAttendanceChaptersInfo.SchoolAttendanceInfo::attendedCount).sum();
+                return AdminOperationsAttendanceChaptersInfo.ChapterAttendanceInfo.of(
+                    chapterEntry.getKey().chapterId(), chapterEntry.getKey().chapterName(),
+                    chapterTotal, chapterAttended, schools
+                );
+            })
+            .toList();
+
+        return AdminOperationsAttendanceChaptersInfo.from(chapters);
+    }
+
+    public AdminOperationsAttendanceTagsInfo getAttendanceByTags(AdminAnalyticsScope scope, Instant from, Instant to) {
+        QScheduleParticipant participant = new QScheduleParticipant("tagParticipant");
+        QSchedule schedule = new QSchedule("tagSchedule");
+        QMember scheduleAuthor = new QMember("tagScheduleAuthor");
+        QChapterSchool authorCs = new QChapterSchool("tagAuthorCs");
+        QChapter authorChapter = new QChapter("tagAuthorChapter");
+        EnumPath<ScheduleTag> tag = Expressions.enumPath(ScheduleTag.class, "tag");
+
+        NumberExpression<Long> totalExpr = participant.id.count();
+        NumberExpression<Long> attendedExpr = new CaseBuilder()
+            .when(participant.attendance.status.in(
+                AttendanceStatus.PRESENT, AttendanceStatus.LATE, AttendanceStatus.EXCUSED
+            ))
+            .then(1L)
+            .otherwise(0L)
+            .sum();
+        NumberExpression<Long> scheduleCountExpr = schedule.id.countDistinct();
+
+        List<Tuple> rows = queryFactory
+            .select(tag, scheduleCountExpr, totalExpr, attendedExpr)
+            .from(schedule)
+            .join(schedule.tags, tag)
+            .join(participant).on(participant.schedule.id.eq(schedule.id))
+            .join(scheduleAuthor).on(scheduleAuthor.id.eq(schedule.authorMemberId))
+            .leftJoin(authorCs).on(authorCs.school.id.eq(scheduleAuthor.schoolId))
+            .leftJoin(authorChapter).on(authorChapter.id.eq(authorCs.chapter.id)
+                .and(authorChapter.gisu.id.eq(scope.gisuId())))
+            .where(
+                scheduleAuthorScopeCondition(scope, scheduleAuthor, authorChapter)
+                    .and(chapterMatchedOrNoMapping(authorCs, authorChapter))
+                    .and(periodCondition(schedule.startsAt, from, to))
+                    .and(schedule.policy.attendanceGraceMinutes.isNotNull())
+            )
+            .groupBy(tag)
+            .orderBy(totalExpr.desc())
+            .fetch();
+
+        List<AdminOperationsAttendanceTagsInfo.TagAttendanceInfo> byTag = rows.stream()
+            .map(row -> AdminOperationsAttendanceTagsInfo.TagAttendanceInfo.of(
+                row.get(tag),
+                defaultLong(row.get(scheduleCountExpr)),
+                defaultLong(row.get(totalExpr)),
+                defaultLong(row.get(attendedExpr))
+            ))
+            .toList();
+
+        return AdminOperationsAttendanceTagsInfo.from(byTag);
+    }
+
+    public AdminOperationsAttendancePartsInfo getAttendanceByParts(AdminAnalyticsScope scope, Instant from, Instant to) {
+        QScheduleParticipant participant = new QScheduleParticipant("partParticipant");
+        QSchedule schedule = new QSchedule("partSchedule");
+        QMember scheduleAuthor = new QMember("partScheduleAuthor");
+        QChapterSchool authorCs = new QChapterSchool("partAuthorCs");
+        QChapter authorChapter = new QChapter("partAuthorChapter");
+        QChallenger challenger = new QChallenger("partChallenger");
+
+        NumberExpression<Long> totalExpr = participant.id.count();
+        NumberExpression<Long> attendedExpr = new CaseBuilder()
+            .when(participant.attendance.status.in(
+                AttendanceStatus.PRESENT, AttendanceStatus.LATE, AttendanceStatus.EXCUSED
+            ))
+            .then(1L)
+            .otherwise(0L)
+            .sum();
+
+        BooleanBuilder condition = scheduleAuthorScopeCondition(scope, scheduleAuthor, authorChapter)
+            .and(chapterMatchedOrNoMapping(authorCs, authorChapter))
+            .and(periodCondition(schedule.startsAt, from, to))
+            .and(schedule.policy.attendanceGraceMinutes.isNotNull());
+
+        if (scope.responsiblePart() != null) {
+            condition.and(challenger.part.eq(scope.responsiblePart()));
+        }
+
+        List<Tuple> rows = queryFactory
+            .select(challenger.part, totalExpr, attendedExpr)
+            .from(participant)
+            .join(participant.schedule, schedule)
+            .join(scheduleAuthor).on(scheduleAuthor.id.eq(schedule.authorMemberId))
+            .leftJoin(authorCs).on(authorCs.school.id.eq(scheduleAuthor.schoolId))
+            .leftJoin(authorChapter).on(authorChapter.id.eq(authorCs.chapter.id)
+                .and(authorChapter.gisu.id.eq(scope.gisuId())))
+            .join(challenger).on(challenger.memberId.eq(participant.memberId)
+                .and(challenger.gisuId.eq(scope.gisuId())))
+            .where(condition)
+            .groupBy(challenger.part)
+            .orderBy(challenger.part.asc())
+            .fetch();
+
+        List<AdminOperationsAttendancePartsInfo.PartAttendanceInfo> byPart = rows.stream()
+            .map(row -> AdminOperationsAttendancePartsInfo.PartAttendanceInfo.of(
+                row.get(challenger.part),
+                defaultLong(row.get(totalExpr)),
+                defaultLong(row.get(attendedExpr))
+            ))
+            .toList();
+
+        return AdminOperationsAttendancePartsInfo.from(byPart);
     }
 }

@@ -8,7 +8,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminDashboardActionQueueRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminDashboardRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminGisuPointsRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminGisuSummaryRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsCommunityActivityRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminStudyGroupActivityRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminStudyGroupListRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendanceChaptersRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendancePartsRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendanceRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendanceTagsRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsOverviewRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsPointsRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsSchoolsRequest;
@@ -18,7 +26,15 @@ import com.umc.product.analytics.adapter.in.web.dto.request.AdminRiskChallengerR
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminDashboardActionQueueResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminDashboardContextResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminDashboardSummaryResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminGisuPointsResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminGisuSummaryResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsCommunityActivityResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminStudyGroupActivityResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminStudyGroupListResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendanceChaptersResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendancePartsResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendanceResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendanceTagsResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsOverviewResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsPointsResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsSchoolsResponse;
@@ -28,6 +44,14 @@ import com.umc.product.analytics.adapter.in.web.dto.response.AdminRiskChallenger
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardActionQueueUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardContextUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardSummaryUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminGisuPointsUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminGisuSummaryUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminOperationsCommunityActivityUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminStudyGroupActivityUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminStudyGroupListUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceChaptersUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendancePartsUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceTagsUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsOverviewUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsPointsUseCase;
@@ -60,8 +84,16 @@ public class AdminDashboardController {
     private final GetAdminOperationsSchoolsUseCase getAdminOperationsSchoolsUseCase;
     private final GetAdminOperationsPointsUseCase getAdminOperationsPointsUseCase;
     private final GetAdminOperationsAttendanceUseCase getAdminOperationsAttendanceUseCase;
+    private final GetAdminOperationsAttendanceChaptersUseCase getAdminOperationsAttendanceChaptersUseCase;
+    private final GetAdminOperationsAttendanceTagsUseCase getAdminOperationsAttendanceTagsUseCase;
+    private final GetAdminOperationsAttendancePartsUseCase getAdminOperationsAttendancePartsUseCase;
     private final GetAdminOperationsStudyGroupsUseCase getAdminOperationsStudyGroupsUseCase;
     private final GetAdminOperationsSignupsUseCase getAdminOperationsSignupsUseCase;
+    private final GetAdminGisuSummaryUseCase getAdminGisuSummaryUseCase;
+    private final GetAdminGisuPointsUseCase getAdminGisuPointsUseCase;
+    private final GetAdminOperationsCommunityActivityUseCase getAdminOperationsCommunityActivityUseCase;
+    private final GetAdminStudyGroupActivityUseCase getAdminStudyGroupActivityUseCase;
+    private final GetAdminStudyGroupListUseCase getAdminStudyGroupListUseCase;
 
     @Operation(operationId = "DASHBOARD-001", summary = "운영진 대시보드 요약 조회")
     @GetMapping("summary")
@@ -147,6 +179,45 @@ public class AdminDashboardController {
         );
     }
 
+    @Operation(operationId = "DASHBOARD-011", summary = "운영 현황 - 지부별 출석률 현황 조회")
+    @GetMapping("operations/attendance/chapters")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminOperationsAttendanceChaptersResponse getOperationsAttendanceByChapters(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminOperationsAttendanceChaptersRequest request
+    ) {
+        return AdminOperationsAttendanceChaptersResponse.from(
+            getAdminOperationsAttendanceChaptersUseCase.getOperationsAttendanceByChapters(
+                request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-012", summary = "운영 현황 - 일정 태그별 출석률 현황 조회")
+    @GetMapping("operations/attendance/tags")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminOperationsAttendanceTagsResponse getOperationsAttendanceByTags(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminOperationsAttendanceTagsRequest request
+    ) {
+        return AdminOperationsAttendanceTagsResponse.from(
+            getAdminOperationsAttendanceTagsUseCase.getOperationsAttendanceByTags(
+                request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-013", summary = "운영 현황 - 파트별 출석률 현황 조회")
+    @GetMapping("operations/attendance/parts")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminOperationsAttendancePartsResponse getOperationsAttendanceByParts(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminOperationsAttendancePartsRequest request
+    ) {
+        return AdminOperationsAttendancePartsResponse.from(
+            getAdminOperationsAttendancePartsUseCase.getOperationsAttendanceByParts(
+                request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
     @Operation(operationId = "DASHBOARD-009", summary = "운영 현황 - 스터디 그룹 및 일정 생성 현황 조회")
     @GetMapping("operations/study-groups")
     @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
@@ -168,6 +239,67 @@ public class AdminDashboardController {
     ) {
         return AdminOperationsSignupsResponse.from(
             getAdminOperationsSignupsUseCase.getOperationsSignups(request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-015", summary = "기수별 지부 간 상벌점 형평성 조회")
+    @GetMapping("gisu/points")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminGisuPointsResponse getGisuPoints(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminGisuPointsRequest request
+    ) {
+        return AdminGisuPointsResponse.from(
+            getAdminGisuPointsUseCase.getGisuPoints(request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-014", summary = "기수별 핵심 지표 요약 조회")
+    @GetMapping("gisu/summary")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminGisuSummaryResponse getGisuSummary(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminGisuSummaryRequest request
+    ) {
+        return AdminGisuSummaryResponse.from(
+            getAdminGisuSummaryUseCase.getGisuSummary(request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-020", summary = "커뮤니티 활성도 - 게시글/댓글 주간, 월간 추이 조회")
+    @GetMapping("community/activity")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminOperationsCommunityActivityResponse getCommunityActivity(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminOperationsCommunityActivityRequest request
+    ) {
+        return AdminOperationsCommunityActivityResponse.from(
+            getAdminOperationsCommunityActivityUseCase.getCommunityActivity(
+                request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-022", summary = "스터디 그룹 활성도 - 파트별 집계 조회")
+    @GetMapping("study-groups/activity")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminStudyGroupActivityResponse getStudyGroupActivity(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminStudyGroupActivityRequest request
+    ) {
+        return AdminStudyGroupActivityResponse.from(
+            getAdminStudyGroupActivityUseCase.getStudyGroupActivity(request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-023", summary = "스터디 그룹 목록 - 학교별 파트 구분 조회")
+    @GetMapping("study-groups/groups")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminStudyGroupListResponse getStudyGroupList(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminStudyGroupListRequest request
+    ) {
+        return AdminStudyGroupListResponse.from(
+            getAdminStudyGroupListUseCase.getStudyGroupList(request.toQuery(memberPrincipal.getMemberId()))
         );
     }
 
