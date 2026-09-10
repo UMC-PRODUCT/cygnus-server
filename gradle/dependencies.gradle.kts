@@ -78,6 +78,7 @@ dependencies {
     add("implementation", "software.amazon.awssdk:sesv2")
 
     // --- Email ---
+    add("implementation", "org.springframework.boot:spring-boot-starter-mail")
     add("implementation", "org.springframework.boot:spring-boot-starter-thymeleaf")
 
     // --- PDF / QR ---
