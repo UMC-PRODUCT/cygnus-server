@@ -2,8 +2,7 @@
   "gisu": {
     "generation": 99,
     "startAt": "2027-03-01T00:00:00+09:00",
-    "endAt": "2027-08-31T23:59:59+09:00",
-    "learningType": "TRACK"
+    "endAt": "2027-08-31T23:59:59+09:00"
   },
   "chapters": [
     {"name": "예시 지부", "schoolIds": [1]}

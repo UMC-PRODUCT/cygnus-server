@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = "Organization | 기수 Command", description = "")
 public interface AdminGisuControllerApi {
 
-    @Operation(operationId = "GISU-001", summary = "기수 생성", description = "새로운 기수를 생성합니다.")
+    @Operation(operationId = "GISU-001", summary = "기수 생성", description = "새로운 기수를 TRACK 학습 방식으로 생성합니다.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "생성 성공"),
         @ApiResponse(responseCode = "409", description = "이미 존재하는 기수")

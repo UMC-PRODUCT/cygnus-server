@@ -10,14 +10,9 @@ import jakarta.validation.constraints.NotNull;
 public record CreateGisuRequest(
     @NotNull Long generation,
     @NotNull Instant startAt,
-    @NotNull Instant endAt,
-    GisuLearningType learningType
+    @NotNull Instant endAt
 ) {
-    public CreateGisuRequest(Long generation, Instant startAt, Instant endAt) {
-        this(generation, startAt, endAt, GisuLearningType.PART);
-    }
-
     public CreateGisuCommand toCommand() {
-        return new CreateGisuCommand(generation, startAt, endAt, learningType);
+        return new CreateGisuCommand(generation, startAt, endAt, GisuLearningType.TRACK);
     }
 }
