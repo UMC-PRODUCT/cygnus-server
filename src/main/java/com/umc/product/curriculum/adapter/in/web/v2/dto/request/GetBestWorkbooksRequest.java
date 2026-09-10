@@ -15,7 +15,7 @@ public record GetBestWorkbooksRequest(
     Long gisuId,
     Set<@Positive Long> schoolIds,
     Set<ChallengerPart> parts,
-    List<@Positive Long> weekNos,
+    List<@PositiveOrZero Long> weekNos,
     List<@Positive Long> studyGroupIds,
     @PositiveOrZero Integer page,
     @Positive @Max(100) Integer size,
