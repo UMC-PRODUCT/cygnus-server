@@ -1,8 +1,11 @@
 package com.umc.product.organization.adapter.in.web.dto.response.gisu;
 
-import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
-import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
+
+import com.umc.product.common.domain.enums.GisuLearningType;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "기수 정보")
 public record GisuResponse(
@@ -16,10 +19,11 @@ public record GisuResponse(
     @Schema(description = "종료일", example = "2024-08-31T23:59:59Z")
     Instant endAt,
     @Schema(description = "활성 여부", example = "true")
-    boolean isActive
+    boolean isActive,
+    GisuLearningType learningType
 ) {
     public static GisuResponse from(GisuInfo info) {
         return new GisuResponse(info.gisuId(), info.generation(), info.generation(), info.startAt(), info.endAt(),
-            info.isActive());
+            info.isActive(), info.learningType());
     }
 }

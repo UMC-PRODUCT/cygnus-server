@@ -1,6 +1,7 @@
 package com.umc.product.organization.application.port.in.query.dto.studygroup;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 
 /**
  * 커서 페이지네이션으로 조회한 스터디원 1건. 소속 그룹 정보를 함께 들고 있어 그룹을 다시 조회하지 않아도 된다.
@@ -18,6 +19,14 @@ public record StudyGroupMemberPageInfo(
     Long studyGroupId,
     String studyGroupName,
     ChallengerPart part,
-    Long memberId
+    Long memberId,
+    ChallengerTrack track
 ) {
+    public StudyGroupMemberPageInfo(
+        Long studyGroupMemberId, Long studyGroupId, String studyGroupName,
+        ChallengerPart part, Long memberId
+    ) {
+        this(studyGroupMemberId, studyGroupId, studyGroupName, part, memberId, null);
+    }
+
 }

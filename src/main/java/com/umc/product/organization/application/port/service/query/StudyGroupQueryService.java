@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -68,8 +69,15 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
      */
     @Override
     public List<StudyGroupWithMemberAndMentorInfo> getMyStudyGroups(Long memberId, Long cursor, int size) {
+        return getMyStudyGroups(memberId, cursor, size, null);
+    }
+
+    @Override
+    public List<StudyGroupWithMemberAndMentorInfo> getMyStudyGroups(
+        Long memberId, Long cursor, int size, Long gisuId
+    ) {
         Long schoolId = getMemberUseCase.getById(memberId).schoolId();
-        Long activeGisuId = getGisuUseCase.getActiveGisuId();
+        Long activeGisuId = gisuId == null ? getGisuUseCase.getActiveGisuId() : getGisuUseCase.getById(gisuId).gisuId();
 
         List<OrganizationRoleScope> scopes = resolveScopes(memberId, activeGisuId, schoolId);
         if (scopes.isEmpty()) {
@@ -96,7 +104,8 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
                 assembleStudyGroupMembers(header.groupId(),
                     mentorIdsByGroup.getOrDefault(header.groupId(), List.of()), memberMap),
                 assembleStudyGroupMembers(header.groupId(),
-                    memberIdsByGroup.getOrDefault(header.groupId(), List.of()), memberMap)
+                    memberIdsByGroup.getOrDefault(header.groupId(), List.of()), memberMap),
+                header.track()
             ))
             .toList();
     }
@@ -111,8 +120,15 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
     public List<StudyGroupMemberPageInfo> getVisibleStudyGroupMembers(
         Long requesterMemberId, Long studyGroupId, Long cursor, int size
     ) {
+        return getVisibleStudyGroupMembers(requesterMemberId, studyGroupId, cursor, size, null);
+    }
+
+    @Override
+    public List<StudyGroupMemberPageInfo> getVisibleStudyGroupMembers(
+        Long requesterMemberId, Long studyGroupId, Long cursor, int size, Long gisuId
+    ) {
         Long schoolId = getMemberUseCase.getById(requesterMemberId).schoolId();
-        Long activeGisuId = getGisuUseCase.getActiveGisuId();
+        Long activeGisuId = gisuId == null ? getGisuUseCase.getActiveGisuId() : getGisuUseCase.getById(gisuId).gisuId();
 
         List<OrganizationRoleScope> scopes = resolveScopes(requesterMemberId, activeGisuId, schoolId);
         Set<Long> visibleGroupIds = scopes.isEmpty()
@@ -187,8 +203,13 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
      */
     @Override
     public List<StudyGroupNameInfo> getStudyGroupNames(Long memberId) {
+        return getStudyGroupNames(memberId, null);
+    }
+
+    @Override
+    public List<StudyGroupNameInfo> getStudyGroupNames(Long memberId, Long gisuId) {
         Long schoolId = getMemberUseCase.getById(memberId).schoolId();
-        Long activeGisuId = getGisuUseCase.getActiveGisuId();
+        Long activeGisuId = gisuId == null ? getGisuUseCase.getActiveGisuId() : getGisuUseCase.getById(gisuId).gisuId();
 
         List<OrganizationRoleScope> scopes = resolveScopes(memberId, activeGisuId, schoolId);
         if (scopes.isEmpty()) {
@@ -219,6 +240,16 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
             .map(StudyGroupInfo::from);
     }
 
+    @Override
+    public Optional<StudyGroupInfo> findByMemberIdAndGisuIdAndTrack(
+        Long memberId,
+        Long gisuId,
+        ChallengerTrack track
+    ) {
+        return loadStudyGroupPort.findEntityByMemberIdAndGisuIdAndTrack(memberId, gisuId, track)
+            .map(StudyGroupInfo::from);
+    }
+
     /**
      * 스터디 그룹 단건 조회 — Aggregate root 를 fetch join 으로 통째로 로드, Member 도메인 batch 호출로 이름/학교/프로필 합성.
      * Member 가 존재하지 않는 memberId 는 결과에서 제외 (INNER JOIN 의 silent drop 과 동일 동작).
@@ -243,7 +274,8 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
             group.getId(), group.getName(),
             group.getGisuId(), group.getPart(), group.getCreatedAt(),
             assembleStudyGroupMembers(studyGroupId, mentorIds, memberMap),
-            assembleStudyGroupMembers(studyGroupId, memberIds, memberMap)
+            assembleStudyGroupMembers(studyGroupId, memberIds, memberMap),
+            group.getTrack()
         );
     }
 

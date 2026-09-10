@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.graphql.test.tester.GraphQlTester;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
@@ -54,6 +55,26 @@ class OrganizationGraphQlControllerTest {
 
     @MockitoBean
     GetSchoolUseCase getSchoolUseCase;
+
+    @Test
+    void 기수조회는_트랙_학습방식을_노출한다() {
+        // given
+        GisuInfo info = new GisuInfo(11L, 11L, Instant.parse("2026-09-01T00:00:00Z"),
+            Instant.parse("2027-03-01T00:00:00Z"), false, GisuLearningType.TRACK);
+        given(getGisuOrganizationUseCase.get(any()))
+            .willReturn(List.of(GisuOrganizationInfo.of(info, List.of(), List.of())));
+
+        // when & then
+        graphQlTester.document("""
+                query {
+                  gisuOrganizations(input: { ids: [11] }) {
+                    gisus { gisuId learningType }
+                  }
+                }
+                """)
+            .execute()
+            .path("gisuOrganizations.gisus[0].learningType").entity(String.class).isEqualTo("TRACK");
+    }
 
     @Test
     @DisplayName("기수 조직 조회의 하위 지부와 학교는 GraphQL field resolver가 batch로 조회한다")

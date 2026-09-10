@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope.AsPartLeader;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope.AsSchoolCore;
@@ -34,6 +35,33 @@ class StudyGroupQueryRepositoryTest {
 
     @Autowired
     StudyGroupQueryRepository sut;
+
+    @Test
+    void 트랙별_조회와_중복검사는_다른_트랙의_소속을_섞지_않는다() {
+        // given
+        StudyGroup plan = em.persist(StudyGroup.create("기획", 1L, null, ChallengerTrack.PLAN,
+            Set.of(100L), Set.of(200L)));
+        StudyGroup web = em.persist(StudyGroup.create("웹", 1L, null, ChallengerTrack.WEB_PRODUCT_ENGINEER,
+            Set.of(100L), Set.of(200L)));
+        em.flush();
+        em.clear();
+
+        // when & then
+        assertThat(sut.findEntityByMemberIdAndGisuIdAndTrack(100L, 1L, ChallengerTrack.PLAN))
+            .get().extracting(StudyGroup::getId).isEqualTo(plan.getId());
+        assertThat(sut.findEntityByMemberIdAndGisuIdAndTrack(100L, 1L, ChallengerTrack.WEB_PRODUCT_ENGINEER))
+            .get().extracting(StudyGroup::getId).isEqualTo(web.getId());
+        assertThat(sut.findConflictedTrackMemberIds(1L, ChallengerTrack.PLAN, Set.of(100L), null))
+            .containsExactly(100L);
+        assertThat(sut.findConflictedTrackMemberIds(1L, ChallengerTrack.PLAN, Set.of(100L), plan.getId()))
+            .isEmpty();
+        assertThat(sut.findConflictedTrackMemberIds(2L, ChallengerTrack.PLAN, Set.of(100L), null)).isEmpty();
+        assertThat(sut.findStudyGroupHeaders(List.of(new AsPartLeader(200L)), 1L, null, 20))
+            .extracting(StudyGroupHeaderInfo::track)
+            .containsExactlyInAnyOrder(ChallengerTrack.PLAN, ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        assertThat(sut.findStudyGroupMemberPage(Set.of(plan.getId()), null, 20)).singleElement()
+            .satisfies(info -> assertThat(info.track()).isEqualTo(ChallengerTrack.PLAN));
+    }
 
     @Test
     void findStudyGroupHeaders_AsSchoolCore_scope_학교_멤버가_멤버로_등록된_그룹만_반환() {

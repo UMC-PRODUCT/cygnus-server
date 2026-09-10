@@ -18,12 +18,18 @@ type GisuOrganizationPayload {
   gisus: [Gisu!]!
 }
 
+enum GisuLearningType {
+  PART
+  TRACK
+}
+
 type Gisu {
   gisuId: ID!
   generation: ID!
   startAt: String!
   endAt: String!
   active: Boolean!
+  learningType: GisuLearningType!
   chapters: [GisuChapter!]!
   schools: [GisuSchool!]!
 }

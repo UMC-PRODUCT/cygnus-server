@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.curriculum.application.port.in.query.GetCurriculumUseCase;
 import com.umc.product.curriculum.application.port.in.query.dto.CurriculumOverviewInfo;
 import com.umc.product.curriculum.application.port.in.query.dto.CurriculumOverviewInfo.WeeklyCurriculumOverviewInfo;
@@ -35,6 +37,9 @@ import com.umc.product.curriculum.domain.OriginalWorkbook;
 import com.umc.product.curriculum.domain.OriginalWorkbookMission;
 import com.umc.product.curriculum.domain.WeeklyCurriculum;
 import com.umc.product.curriculum.domain.enums.SubmissionStatus;
+import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
+import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -44,6 +49,7 @@ import lombok.RequiredArgsConstructor;
 public class CurriculumQueryService implements GetCurriculumUseCase {
 
     private final GetChallengerUseCase getChallengerUseCase;
+    private final GetGisuUseCase getGisuUseCase;
     private final LoadCurriculumPort loadCurriculumPort;
     private final LoadWeeklyCurriculumPort loadWeeklyCurriculumPort;
     private final LoadOriginalWorkbookPort loadOriginalWorkbookPort;
@@ -54,7 +60,24 @@ public class CurriculumQueryService implements GetCurriculumUseCase {
 
     @Override
     public CurriculumOverviewInfo getCurriculumOverview(Long gisuId, ChallengerPart part, Long weekNo) {
-        CurriculumProjection projection = loadCurriculumPort.getByGisuIdAndPart(gisuId, part);
+        return getCurriculumOverview(gisuId, part, null, weekNo);
+    }
+
+    @Override
+    public CurriculumOverviewInfo getCurriculumOverview(
+        Long gisuId, ChallengerPart part, ChallengerTrack track, Long weekNo
+    ) {
+        GisuLearningType learningType = getGisuUseCase.getById(gisuId).learningType();
+        boolean valid = learningType == GisuLearningType.PART
+            ? part != null && track == null
+            : part == null && track != null;
+        if (!valid) {
+            throw new CurriculumDomainException(CurriculumErrorCode.INVALID_CURRICULUM_LEARNING_TYPE);
+        }
+        validateBasicTrack(track);
+        CurriculumProjection projection = track == null
+            ? loadCurriculumPort.getByGisuIdAndPart(gisuId, part)
+            : loadCurriculumPort.getByGisuIdAndTrack(gisuId, track);
         List<WeeklyCurriculum> weeklyCurriculums = loadWeeklyCurriculumPort.findByCurriculumId(projection.id(), weekNo);
 
         List<WeeklyCurriculumOverviewInfo> weeks = weeklyCurriculums.stream()
@@ -66,8 +89,23 @@ public class CurriculumQueryService implements GetCurriculumUseCase {
 
     @Override
     public MyCurriculumInfo getMyProgress(Long memberId, Long gisuId) {
+        return getMyProgress(memberId, gisuId, null);
+    }
+
+    @Override
+    public MyCurriculumInfo getMyProgress(Long memberId, Long gisuId, ChallengerTrack track) {
+        GisuLearningType learningType = getGisuUseCase.getById(gisuId).learningType();
         ChallengerInfo challengerInfo = getChallengerUseCase.getByMemberIdAndGisuId(memberId, gisuId);
-        CurriculumProjection projection = loadCurriculumPort.getByGisuIdAndPart(gisuId, challengerInfo.part());
+        CurriculumProjection projection;
+        if (learningType == GisuLearningType.PART) {
+            if (track != null) {
+                throw new CurriculumDomainException(CurriculumErrorCode.INVALID_CURRICULUM_LEARNING_TYPE);
+            }
+            projection = loadCurriculumPort.getByGisuIdAndPart(gisuId, challengerInfo.part());
+        } else {
+            ChallengerTrack selected = resolveTrack(challengerInfo, track);
+            projection = loadCurriculumPort.getByGisuIdAndTrack(gisuId, selected);
+        }
 
         List<WeeklyCurriculum> weeklyCurriculums = loadWeeklyCurriculumPort.findByCurriculumId(projection.id(), null);
         if (weeklyCurriculums.isEmpty()) {
@@ -134,6 +172,28 @@ public class CurriculumQueryService implements GetCurriculumUseCase {
             missionInfos,
             cw != null ? java.util.Optional.of(cw.getId()) : java.util.Optional.empty()
         );
+    }
+
+    private ChallengerTrack resolveTrack(ChallengerInfo challenger, ChallengerTrack requestedTrack) {
+        validateBasicTrack(requestedTrack);
+        List<ChallengerTrack> basicTracks = challenger.tracks() == null ? List.of()
+            : challenger.tracks().stream().filter(ChallengerTrack::isBasic).distinct().toList();
+        if (requestedTrack != null) {
+            if (!basicTracks.contains(requestedTrack)) {
+                throw new CurriculumDomainException(CurriculumErrorCode.WORKBOOK_ACCESS_DENIED);
+            }
+            return requestedTrack;
+        }
+        if (basicTracks.size() != 1) {
+            throw new CurriculumDomainException(CurriculumErrorCode.CURRICULUM_TRACK_REQUIRED);
+        }
+        return basicTracks.getFirst();
+    }
+
+    private void validateBasicTrack(ChallengerTrack track) {
+        if (track != null && !track.isBasic()) {
+            throw new CurriculumDomainException(CurriculumErrorCode.UNSUPPORTED_CURRICULUM_TRACK);
+        }
     }
 
     private Map<Long, MissionSubmissionInfo> buildSubmissionInfoMap(

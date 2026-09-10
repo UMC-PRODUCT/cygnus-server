@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.common.domain.enums.MemberStatus;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
@@ -34,6 +36,7 @@ import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope.AsPartLeader;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope.AsSchoolCore;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupWithMemberAndMentorInfo;
@@ -57,6 +60,29 @@ class StudyGroupQueryServiceTest {
 
     @InjectMocks
     StudyGroupQueryService sut;
+
+    @Test
+    void 준비기수_조회는_선택한_기수의_권한과_그룹을_사용한다() {
+        // given
+        given(getMemberUseCase.getById(1L)).willReturn(memberInfo(1L, 100L));
+        given(getGisuUseCase.getById(11L)).willReturn(new GisuInfo(11L, 11L,
+            Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2027-03-01T00:00:00Z"),
+            false, GisuLearningType.TRACK));
+        given(getChallengerRoleUseCase.isSchoolCoreInGisu(1L, 11L, 100L)).willReturn(true);
+        given(getMemberUseCase.listIdsBySchoolId(100L)).willReturn(Set.of(101L));
+
+        // when
+        sut.getMyStudyGroups(1L, null, 20, 11L);
+        sut.getStudyGroupNames(1L, 11L);
+        sut.getVisibleStudyGroupMembers(1L, null, null, 20, 11L);
+
+        // then
+        verify(getGisuUseCase, never()).getActiveGisuId();
+        verify(loadStudyGroupPort).findStudyGroupHeaders(any(), eq(11L), eq(null), eq(21));
+        verify(loadStudyGroupPort).findStudyGroupNames(any(), eq(11L));
+        verify(loadStudyGroupPort).findStudyGroupIds(any(), eq(11L));
+        verify(getChallengerRoleUseCase, times(3)).isSchoolCoreInGisu(1L, 11L, 100L);
+    }
 
     @Test
     void getMyStudyGroups_회장은_AsSchoolCore_scope로_조회() {

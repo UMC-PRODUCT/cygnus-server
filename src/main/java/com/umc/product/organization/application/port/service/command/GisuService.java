@@ -1,5 +1,10 @@
 package com.umc.product.organization.application.port.service.command;
 
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.organization.application.port.in.command.ManageGisuUseCase;
 import com.umc.product.organization.application.port.in.command.dto.CreateGisuCommand;
 import com.umc.product.organization.application.port.out.command.SaveGisuPort;
@@ -8,10 +13,8 @@ import com.umc.product.organization.application.port.out.query.LoadGisuPort;
 import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.exception.OrganizationDomainException;
 import com.umc.product.organization.exception.OrganizationErrorCode;
-import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +29,9 @@ public class GisuService implements ManageGisuUseCase {
     public Long create(CreateGisuCommand command) {
         validateGenerationNotDuplicated(command);
 
-        Gisu gisu = Gisu.create(command.generation(), command.startAt(), command.endAt(), false);
+        Gisu gisu = Gisu.create(
+            command.generation(), command.startAt(), command.endAt(), false, command.learningType()
+        );
 
         return saveGisuPort.save(gisu).getId();
     }

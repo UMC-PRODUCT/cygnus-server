@@ -177,6 +177,7 @@ public class WeeklyBestWorkbookQueryService implements GetWeeklyBestWorkbookUseC
             .challengerId(bestWorkbook.getMemberId())
             .gisuId(weeklyCurriculum.getCurriculum().getGisuId())
             .part(weeklyCurriculum.getCurriculum().getPart())
+            .track(weeklyCurriculum.getCurriculum().getTrack())
             .studyGroupId(bestWorkbook.getStudyGroupId())
             .decidedMemberId(bestWorkbook.getDecidedMemberId())
             .reason(bestWorkbook.getReason())

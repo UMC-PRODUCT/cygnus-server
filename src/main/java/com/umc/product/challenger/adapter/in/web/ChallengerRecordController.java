@@ -92,10 +92,11 @@ public class ChallengerRecordController {
         resourceType = ResourceType.CHALLENGER_RECORD,
         permission = PermissionType.WRITE
     )
-    @Operation(operationId = "CHALLENGER-RECORD-002", summary = "과거 챌린저 기록용 코드 생성",
+    @Operation(operationId = "CHALLENGER-RECORD-002", summary = "챌린저 가입 및 기록용 코드 생성",
         description = """
-            중앙운영사무국 총괄단만 사용 가능한 기능입니다. 9기 이전 기수의 챌린저 기록을 업로드하고,
-            각 기록을 모든 회원이 추가할 수 있도록 6자리 코드를 생성하여 발급합니다.
+            중앙운영사무국 총괄단이 기수의 학습 유형에 맞는 part 또는 기본 track 하나로 6자리 코드를 발급합니다.
+            일반 코드는 이름과 학교가 일치하는 회원의 기수별 최초 가입에 사용합니다.
+            운영진 코드는 기존 part를 담당 파트로 사용하며 수강 track을 함께 지정할 수 없습니다.
             """)
     @PostMapping
     public ChallengerRecordResponse createChallengerRecord(
@@ -107,6 +108,7 @@ public class ChallengerRecordController {
         Long id = manageChallengerRecordUseCase.create(
             CreateChallengerRecordCommand.builder()
                 .part(request.part())
+                .track(request.track())
                 .creatorMemberId(memberPrincipal.getMemberId())
                 .gisuId(request.gisuId())
                 .chapterId(request.chapterId())
@@ -123,8 +125,7 @@ public class ChallengerRecordController {
         description = """
             Response는 생성된 챌린저 기록의 ID 리스트입니다. (성능 상 이슈로 각각에 대해서는 id 및 code로 조회하는 API 이용)
 
-            중앙운영사무국 총괄단만 사용 가능한 기능입니다. 9기 이전 기수의 챌린저 기록을 업로드하고,
-            각 기록을 모든 회원이 추가할 수 있도록 6자리 코드를 생성하여 발급합니다.
+            중앙운영사무국 총괄단이 단건 발급과 동일한 기수·학교·지부 및 학습 유형 검증으로 코드를 일괄 발급합니다.
             """)
     @PostMapping("bulk")
     @CheckAccess(
@@ -139,6 +140,7 @@ public class ChallengerRecordController {
             request.stream()
                 .map(req -> CreateChallengerRecordCommand.builder()
                     .part(req.part())
+                    .track(req.track())
                     .creatorMemberId(memberPrincipal.getMemberId())
                     .gisuId(req.gisuId())
                     .chapterId(req.chapterId())

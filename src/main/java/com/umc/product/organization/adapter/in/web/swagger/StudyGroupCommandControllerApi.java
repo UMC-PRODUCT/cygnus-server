@@ -15,12 +15,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public interface StudyGroupCommandControllerApi {
 
     @Operation(operationId = "STUDY-GROUP-001", summary = "스터디 그룹 생성", description = """
-        스터디 그룹을 생성합니다. 스터디 그룹은 특정 기수에 속해야 하며, 파트를 명시해야 합니다.
+        PART 기수는 part, TRACK 기수는 기본 track 하나를 지정합니다. part와 track을 함께 지정할 수 없습니다.
+        PLUS 트랙은 스터디를 생성할 수 없습니다.
 
-        스터디원 및 담당 파트장은 모두 `memberId` 로 명시해주시면 됩니다.
-
-        스터디원의 경우, 같은 기수에 동일한 파트의 다른 스터디에 속해있지 않아야 합니다. (e.g. 9기에 SpringBoot 스터디 2개에 들어가는 것은 불가능)
-        파트장은 관계 없습니다.
+        스터디원과 담당 파트장 ID는 모두 챌린저 ID가 아닌 회원 ID(memberId)입니다.
+        TRACK 스터디원은 해당 기수의 ACTIVE 챌린저이며 선택한 트랙을 수강 중이어야 합니다.
+        같은 기수의 동일 파트 또는 동일 트랙에서 다른 스터디에 중복 참여할 수 없습니다.
+        서로 다른 트랙의 스터디에는 함께 참여할 수 있습니다. 담당 파트장은 이 중복 제한을 적용하지 않습니다.
         """)
     @ApiResponses(value = {
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),
@@ -29,9 +30,10 @@ public interface StudyGroupCommandControllerApi {
     void create(CreateStudyGroupRequest request);
 
     @Operation(operationId = "STUDY-GROUP-002", summary = "스터디 그룹 수정", description = """
-        스터디 그룹의 이름과 파트를 수정합니다. 전달하지 않은 필드는 변경되지 않습니다.
+        스터디 이름과 기존 PART 스터디의 part를 수정합니다. 전달하지 않은 필드는 변경되지 않습니다.
+        TRACK 스터디의 track은 생성 후 변경할 수 없으며, part를 지정할 수 없습니다.
 
-        파트 변경 시, 현재 스터디원 중 같은 기수의 변경할 파트 스터디에 이미 속한 회원이 있으면 400 에러가 발생합니다.
+        파트 변경 시 같은 기수의 변경할 파트 스터디에 이미 속한 멤버가 있으면 409 에러가 발생합니다.
         스터디원 및 파트장 수정은 별도의 API 사용 바랍니다.
         """)
     @ApiResponses(value = {
@@ -42,13 +44,17 @@ public interface StudyGroupCommandControllerApi {
         @Parameter(description = "스터디 그룹 ID", required = true) Long studyGroupId,
         UpdateStudyGroupRequest request);
 
-    @Operation(operationId = "STUDY-GROUP-003", summary = "스터디 그룹에 스터디원 추가", description = "스터디 그룹에 스터디원을 추가합니다.")
+    @Operation(operationId = "STUDY-GROUP-003", summary = "스터디 그룹에 스터디원 추가", description = """
+        회원 ID(memberId)로 스터디원을 추가합니다.
+        TRACK 그룹은 해당 기수의 ACTIVE 챌린저와 수강 트랙을 검사합니다.
+        """)
     void addMember(
         @PathVariable Long studyGroupId,
         @PathVariable Long memberId
     );
 
-    @Operation(operationId = "STUDY-GROUP-004", summary = "스터디 그룹에 담당 파트장 추가", description = "스터디 그룹에 파트장을 추가합니다.")
+    @Operation(operationId = "STUDY-GROUP-004", summary = "스터디 그룹에 담당 파트장 추가",
+        description = "담당 파트장의 회원 ID(memberId)로 스터디 그룹에 파트장을 추가합니다.")
     void addMentor(
         @PathVariable Long studyGroupId,
         @PathVariable Long mentorId

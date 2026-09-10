@@ -37,12 +37,13 @@ public class StudyGroupQueryController implements StudyGroupQueryControllerApi {
     public CursorResponse<StudyGroupResponse> getStudyGroups(
         @CurrentMember MemberPrincipal memberPrincipal,
         @RequestParam(required = false) Long cursor,
-        @RequestParam(defaultValue = "20") int size
+        @RequestParam(defaultValue = "20") int size,
+        @RequestParam(required = false) Long gisuId
     ) {
 
-        List<StudyGroupWithMemberAndMentorInfo> content = getStudyGroupUseCase.getMyStudyGroups(
-            memberPrincipal.getMemberId(), cursor, size
-        );
+        List<StudyGroupWithMemberAndMentorInfo> content = gisuId == null
+            ? getStudyGroupUseCase.getMyStudyGroups(memberPrincipal.getMemberId(), cursor, size)
+            : getStudyGroupUseCase.getMyStudyGroups(memberPrincipal.getMemberId(), cursor, size, gisuId);
 
         return CursorResponse.of(
             content,
@@ -57,10 +58,22 @@ public class StudyGroupQueryController implements StudyGroupQueryControllerApi {
      */
     @Override
     @GetMapping("/names")
-    public StudyGroupNameResponse getStudyGroupNames(@CurrentMember MemberPrincipal memberPrincipal) {
+    public StudyGroupNameResponse getStudyGroupNames(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @RequestParam(required = false) Long gisuId
+    ) {
         return StudyGroupNameResponse.from(
-            getStudyGroupUseCase.getStudyGroupNames(memberPrincipal.getMemberId())
+            gisuId == null ? getStudyGroupUseCase.getStudyGroupNames(memberPrincipal.getMemberId())
+                : getStudyGroupUseCase.getStudyGroupNames(memberPrincipal.getMemberId(), gisuId)
         );
+    }
+
+    public CursorResponse<StudyGroupResponse> getStudyGroups(MemberPrincipal principal, Long cursor, int size) {
+        return getStudyGroups(principal, cursor, size, null);
+    }
+
+    public StudyGroupNameResponse getStudyGroupNames(MemberPrincipal principal) {
+        return getStudyGroupNames(principal, null);
     }
 
     /**

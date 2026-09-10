@@ -27,6 +27,7 @@ import com.umc.product.notification.application.port.in.SendWebhookAlarmUseCase;
 import com.umc.product.notification.application.port.in.dto.SendWebhookAlarmCommand;
 import com.umc.product.notification.domain.WebhookPlatform;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 
 import jakarta.transaction.Transactional;
@@ -46,6 +47,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
     private final LoadChallengerPort loadChallengerPort;
 
     private final GetChapterUseCase getChapterUseCase;
+    private final GetGisuUseCase getGisuUseCase;
     private final GetMemberUseCase getMemberUseCase;
     private final ManageChallengerRoleUseCase manageChallengerRoleUseCase;
     private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
@@ -61,9 +63,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
     )
     @Override
     public Long create(CreateChallengerRecordCommand command) {
-        validateRecord(command.gisuId(), command.schoolId(), command.chapterId());
-
-        ChallengerRecord savedRecord = saveChallengerRecordPort.save(command.toEntity());
+        ChallengerRecord savedRecord = saveChallengerRecordPort.save(createValidatedRecord(command));
         log.info("ChallengerRecord를 생성했습니다: recordId={}, gisuId={}, schoolId={}, chapterId={}, adminRecord={}",
             savedRecord.getId(), command.gisuId(), command.schoolId(), command.chapterId(),
             command.challengerRoleType() != null);
@@ -79,7 +79,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
     @Override
     public List<Long> createBulk(List<CreateChallengerRecordCommand> commands) {
         List<ChallengerRecord> records = commands.stream()
-            .map(CreateChallengerRecordCommand::toEntity)
+            .map(this::createValidatedRecord)
             .toList();
 
         List<ChallengerRecord> savedRecords = saveChallengerRecordPort.saveAll(records);
@@ -111,7 +111,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
         String code = command.code();
         Long memberId = command.targetMemberId();
 
-        ChallengerRecord record = loadChallengerRecordPort.getByCode(code);
+        ChallengerRecord record = loadChallengerRecordPort.getByCodeForUpdate(code);
         record.validateNotUsed();
 
         // 운영진 기록, 즉 ChallengerRole 객체를 추가해야하는 상황이라면 Challenger를 생성하지 않음
@@ -149,6 +149,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
 
         // 챌린저 기록 추가하기
         else {
+            record.validateLearningType(getGisuUseCase.getById(record.getGisuId()).learningType());
             MemberInfo memberInfo = getMemberUseCase.getById(memberId);
             record.validateMember(memberInfo.name(), memberInfo.schoolId());
 
@@ -163,6 +164,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
                 Challenger.builder()
                     .memberId(memberId)
                     .part(record.getPart())
+                    .tracks(record.getTrack() == null ? List.of() : List.of(record.getTrack()))
                     .gisuId(record.getGisuId())
                     .build()
             );
@@ -173,13 +175,22 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
                     .title("챌린저 기록이 추가되었습니다.")
                     .content(
                         memberInfo.schoolName() + " " + memberInfo.nickname() + "/" + memberInfo.name() + " 님이 gisuId"
-                            + record.getGisuId() + "에" + record.getPart() + " 파트 챌린저 코드를 등록하였습니다.")
+                            + record.getGisuId() + "에 "
+                            + (record.getTrack() == null ? record.getPart() + " 파트" : record.getTrack() + " 트랙")
+                            + " 챌린저 코드를 등록하였습니다.")
                     .platforms(List.of(WebhookPlatform.TELEGRAM, WebhookPlatform.DISCORD))
                     .build()
             );
         }
 
         record.markAsUsed(memberId);
+    }
+
+    private ChallengerRecord createValidatedRecord(CreateChallengerRecordCommand command) {
+        ChallengerRecord record = command.toEntity();
+        record.validateLearningType(getGisuUseCase.getById(command.gisuId()).learningType());
+        validateRecord(command.gisuId(), command.schoolId(), command.chapterId());
+        return record;
     }
 
     private void validateRecord(Long gisuId, Long schoolId, Long chapterId) {

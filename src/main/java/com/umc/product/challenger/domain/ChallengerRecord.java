@@ -1,10 +1,17 @@
 package com.umc.product.challenger.domain;
 
+import java.time.Instant;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
+
 import com.umc.product.challenger.domain.exception.ChallengerDomainException;
 import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
 import com.umc.product.common.BaseEntity;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.common.domain.enums.GisuLearningType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,9 +20,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.Instant;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.IntStream;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -51,6 +55,10 @@ public class ChallengerRecord extends BaseEntity {
     @Column(name = "part")
     private ChallengerPart part;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "track")
+    private ChallengerTrack track;
+
     @Column(name = "challenger_role_type")
     @Enumerated(EnumType.STRING)
     private ChallengerRoleType challengerRoleType;
@@ -71,11 +79,22 @@ public class ChallengerRecord extends BaseEntity {
         Long createdMemberId, Long gisuId, Long chapterId, Long schoolId,
         ChallengerPart part, String memberName
     ) {
+        return create(createdMemberId, gisuId, chapterId, schoolId, part, null, memberName);
+    }
+
+    public static ChallengerRecord create(
+        Long createdMemberId, Long gisuId, Long chapterId, Long schoolId,
+        ChallengerPart part, ChallengerTrack track, String memberName
+    ) {
+        if (track != null && (part != null || !track.isBasic())) {
+            throw new ChallengerDomainException(ChallengerErrorCode.INVALID_CHALLENGER_RECORD_CREATE_REQUEST);
+        }
         ChallengerRecord record = new ChallengerRecord();
 
         record.code = generateUniqueCode();
         record.createdMemberId = createdMemberId;
         record.part = part;
+        record.track = track;
         record.gisuId = gisuId;
         record.schoolId = schoolId;
         record.chapterId = chapterId;
@@ -111,6 +130,20 @@ public class ChallengerRecord extends BaseEntity {
 
     public boolean isAdminRecord() {
         return this.challengerRoleType != null;
+    }
+
+    public void validateLearningType(GisuLearningType learningType) {
+        if (isAdminRecord()) {
+            return;
+        }
+        boolean valid = switch (learningType) {
+            case PART -> part != null && track == null;
+            case TRACK -> part == null && track != null && track.isBasic();
+        };
+        if (!valid) {
+            throw new ChallengerDomainException(ChallengerErrorCode.INVALID_CHALLENGER_RECORD_CREATE_REQUEST,
+                "기수의 학습 유형에 맞는 파트 또는 기본 트랙을 선택해주세요.");
+        }
     }
 
     public void markAsUsed(Long usedMemberId) {

@@ -27,7 +27,10 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v2/curriculums")
 @RequiredArgsConstructor
-@Tag(name = "Curriculum V2 | Curriculum & WeeklyCurriculum Command", description = "교육국 파트장이 커리큘럼과 주차별 내용을 관리합니다.")
+@Tag(
+    name = "Curriculum V2 | Curriculum & WeeklyCurriculum Command",
+    description = "해당 기수 중앙운영진 또는 SUPER_ADMIN이 커리큘럼과 주차별 내용을 관리합니다."
+)
 public class CurriculumCommandV2Controller {
 
     private final ManageCurriculumUseCase manageCurriculumUseCase;
@@ -39,13 +42,14 @@ public class CurriculumCommandV2Controller {
         operationId = "CURRICULUM-001",
         summary = "커리큘럼 생성",
         description = """
-            기수, 파트에 대한 상위 객체인 커리큘럼을 생성합니다.
+            기수의 학습 방식에 맞는 파트 또는 기본 트랙 커리큘럼을 생성합니다.
 
-            단, 동일한 기수에 동일한 파트에 대한 커리큘럼은 존재할 수 없습니다.
+            동일 기수의 같은 파트 또는 트랙 커리큘럼은 중복 생성할 수 없습니다. PLUS는 지원하지 않습니다.
             """
     )
     @CheckAccess(
         resourceType = ResourceType.CURRICULUM,
+        resourceId = "'gisu:' + #request.gisuId",
         permission = PermissionType.WRITE
     )
     @PostMapping
@@ -61,7 +65,7 @@ public class CurriculumCommandV2Controller {
         description = """
             상위 객체인 커리큘럼을 수정합니다.
 
-            기수, 파트 등은 수정이 불가능하며 커리큘럼의 이름만 수정 가능합니다.
+            기수, 파트, 트랙은 수정이 불가능하며 커리큘럼의 이름만 수정 가능합니다.
             """
     )
     @CheckAccess(
@@ -82,10 +86,10 @@ public class CurriculumCommandV2Controller {
 
     @Operation(
         operationId = "CURRICULUM-003",
-        summary = "중앙운영사무국 총괄단용: 커리큘럼 삭제",
+        summary = "커리큘럼 삭제",
         description = """
             - 커리큘럼 내부에 포함된 주차별 커리큘럼이 존재하는 경우 삭제하지 못합니다.
-            - 중앙운영사무국 총괄단 이상의 권한을 보유한 경우에만 삭제가 가능합니다.
+            - 해당 기수 중앙운영진 또는 SUPER_ADMIN만 관리할 수 있습니다.
             """
     )
     @CheckAccess(
@@ -139,7 +143,7 @@ public class CurriculumCommandV2Controller {
     )
     @CheckAccess(
         resourceType = ResourceType.CURRICULUM,
-        resourceId = "#weeklyCurriculumId",
+        resourceId = "'weekly:' + #weeklyCurriculumId",
         permission = PermissionType.WRITE
     )
     @PatchMapping("/weekly/{weeklyCurriculumId}")
@@ -161,7 +165,7 @@ public class CurriculumCommandV2Controller {
     )
     @CheckAccess(
         resourceType = ResourceType.CURRICULUM,
-        resourceId = "#weeklyCurriculumId",
+        resourceId = "'weekly:' + #weeklyCurriculumId",
         permission = PermissionType.DELETE
     )
     @DeleteMapping("/weekly/{weeklyCurriculumId}")

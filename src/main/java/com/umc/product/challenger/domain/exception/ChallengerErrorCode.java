@@ -27,6 +27,7 @@ public enum ChallengerErrorCode implements BaseCode {
     INVALID_CHALLENGER_RECORD_CREATE_REQUEST(HttpStatus.BAD_REQUEST, "CHALLENGER-0015", "입력한 정보로 챌린저 기록을 만들 수 없어요. 값을 확인해주세요."),
     NO_CHALLENGER_IN_MEMBER_GISU(HttpStatus.NOT_FOUND, "CHALLENGER-0016", "해당 기수의 챌린저 기록을 찾을 수 없어요. 기수를 확인해주세요."),
     CHALLENGER_PART_NOT_FOUND(HttpStatus.NOT_FOUND, "CHALLENGER-0017", "챌린저 파트를 찾을 수 없어요. 파트 값을 확인해주세요."),
+    INVALID_CHALLENGER_LEARNING_TYPE(HttpStatus.BAD_REQUEST, "CHALLENGER-0018", "트랙 기수는 파트 없이 기본 트랙으로 등록해주세요."),
     ;
 
     private final HttpStatus httpStatus;

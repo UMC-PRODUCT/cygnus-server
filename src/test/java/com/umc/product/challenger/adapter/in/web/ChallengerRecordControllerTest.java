@@ -1,5 +1,6 @@
 package com.umc.product.challenger.adapter.in.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -12,6 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -26,7 +30,9 @@ import com.umc.product.challenger.adapter.in.web.assembler.ChallengerRecordRespo
 import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordResponse;
 import com.umc.product.challenger.application.port.in.command.ManageChallengerRecordUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
+import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
@@ -70,6 +76,50 @@ class ChallengerRecordControllerTest {
         mockMvc.perform(get("/api/v1/challenger-record/code/{code}", "ABC123"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.code").value("ABC123"));
+    }
+
+    @Test
+    @DisplayName("기본 트랙 코드 발급 요청을 전달하고 응답에 트랙을 노출한다")
+    void 기본_트랙_코드_발급_요청을_전달하고_응답에_트랙을_노출한다() throws Exception {
+        // given
+        given(manageChallengerRecordUseCase.create(any())).willReturn(10L);
+        given(assembler.from(10L)).willReturn(ChallengerRecordResponse.builder()
+            .code("ABC123").track(ChallengerTrack.WEB_PRODUCT_ENGINEER).build());
+
+        // when & then
+        mockMvc.perform(post("/api/v1/challenger-record")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"gisuId":1,"chapterId":2,"schoolId":3,"track":"WEB_PRODUCT_ENGINEER","memberName":"홍길동"}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.track").value("WEB_PRODUCT_ENGINEER"));
+
+        ArgumentCaptor<CreateChallengerRecordCommand> captor =
+            ArgumentCaptor.forClass(CreateChallengerRecordCommand.class);
+        then(manageChallengerRecordUseCase).should().create(captor.capture());
+        assertThat(captor.getValue().part()).isNull();
+        assertThat(captor.getValue().track()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        assertThat(captor.getValue().creatorMemberId()).isEqualTo(99L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "\"part\":\"WEB\",\"track\":\"WEB_PRODUCT_ENGINEER\",",
+        "\"track\":\"INFRA_PLUS\",",
+        "\"track\":\"DESIGN\",\"challengerRoleType\":\"SCHOOL_PART_LEADER\",",
+        ""
+    })
+    @DisplayName("혼합 유형과 PLUS 및 빈 학습 유형은 코드로 발급할 수 없다")
+    void 혼합_유형과_PLUS_및_빈_학습_유형은_코드로_발급할_수_없다(String selection) throws Exception {
+        mockMvc.perform(post("/api/v1/challenger-record")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"gisuId":1,"chapterId":2,"schoolId":3,%s"memberName":"홍길동"}
+                    """.formatted(selection)))
+            .andExpect(status().isBadRequest());
+
+        then(manageChallengerRecordUseCase).should(never()).create(any());
     }
 
     @Test

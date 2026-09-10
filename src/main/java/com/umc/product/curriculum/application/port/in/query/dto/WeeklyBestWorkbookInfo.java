@@ -1,9 +1,11 @@
 package com.umc.product.curriculum.application.port.in.query.dto;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import lombok.Builder;
-
 import java.util.List;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+
+import lombok.Builder;
 
 /**
  * 베스트 워크북 조회 결과 Info
@@ -23,9 +25,18 @@ public record WeeklyBestWorkbookInfo(
     Long challengerId,
     Long gisuId,
     ChallengerPart part,
+    ChallengerTrack track,
     Long studyGroupId,
     Long decidedMemberId,
     String reason,
     List<ChallengerWorkbookInfo> challengerWorkbooks
 ) {
+
+    public WeeklyBestWorkbookInfo(
+        Long weeklyBestWorkbookEntityId, Long challengerId, Long gisuId, ChallengerPart part,
+        Long studyGroupId, Long decidedMemberId, String reason, List<ChallengerWorkbookInfo> challengerWorkbooks
+    ) {
+        this(weeklyBestWorkbookEntityId, challengerId, gisuId, part, null,
+            studyGroupId, decidedMemberId, reason, challengerWorkbooks);
+    }
 }

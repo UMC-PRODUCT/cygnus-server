@@ -5,6 +5,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
+import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.curriculum.application.port.in.query.GetOriginalWorkbookUseCase;
 import com.umc.product.curriculum.application.port.in.query.dto.OriginalWorkbookInfo;
 import com.umc.product.curriculum.application.port.in.query.dto.OriginalWorkbookInfo.OriginalWorkbookMissionInfo;
@@ -26,16 +28,24 @@ public class OriginalWorkbookQueryService implements GetOriginalWorkbookUseCase 
     private final LoadOriginalWorkbookPort loadOriginalWorkbookPort;
     private final LoadOriginalWorkbookMissionPort loadOriginalWorkbookMissionPort;
     private final GetStudyGroupUseCase getStudyGroupUseCase;
+    private final GetChallengerUseCase getChallengerUseCase;
 
     @Override
     public OriginalWorkbookInfo getById(Long originalWorkbookId, Long requesterMemberId) {
         OriginalWorkbook workbook = loadOriginalWorkbookPort.getById(originalWorkbookId);
         var curriculum = workbook.getWeeklyCurriculum().getCurriculum();
-        boolean belongsToMatchedStudyGroup = getStudyGroupUseCase.findByMemberIdAndGisuIdAndPart(
-            requesterMemberId,
-            curriculum.getGisuId(),
-            curriculum.getPart()
-        ).isPresent();
+        boolean belongsToMatchedStudyGroup;
+        if (curriculum.getTrack() == null) {
+            belongsToMatchedStudyGroup = getStudyGroupUseCase.findByMemberIdAndGisuIdAndPart(
+                requesterMemberId, curriculum.getGisuId(), curriculum.getPart()).isPresent();
+        } else {
+            boolean enrolled = getChallengerUseCase.getAllByMemberId(requesterMemberId).stream()
+                .anyMatch(challenger -> challenger.challengerStatus() == ChallengerStatus.ACTIVE
+                    && curriculum.getGisuId().equals(challenger.gisuId())
+                    && challenger.tracks() != null && challenger.tracks().contains(curriculum.getTrack()));
+            belongsToMatchedStudyGroup = enrolled && getStudyGroupUseCase.findByMemberIdAndGisuIdAndTrack(
+                requesterMemberId, curriculum.getGisuId(), curriculum.getTrack()).isPresent();
+        }
         if (!belongsToMatchedStudyGroup) {
             throw new CurriculumDomainException(CurriculumErrorCode.WORKBOOK_ACCESS_DENIED);
         }

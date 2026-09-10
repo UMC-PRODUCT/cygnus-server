@@ -17,7 +17,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookMissionPort;
 import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookPort;
 import com.umc.product.curriculum.domain.Curriculum;
@@ -78,4 +82,42 @@ class OriginalWorkbookQueryServiceTest {
             .extracting("baseCode")
             .isEqualTo(CurriculumErrorCode.WORKBOOK_ACCESS_DENIED);
     }
+
+    @Mock private GetChallengerUseCase getChallengerUseCase;
+
+    @Test
+    void 트랙_원본은_활성_수강자와_같은_트랙_그룹이_모두_필요하다() {
+        // given
+        WeeklyCurriculum weekly = WeeklyCurriculum.create(
+            Curriculum.createForTrack(9L, ChallengerTrack.WEB_PRODUCT_ENGINEER, "웹"),
+            1L, false, "1주차", Instant.EPOCH, Instant.MAX);
+        OriginalWorkbook trackWorkbook = OriginalWorkbook.createAsDraft(
+            weekly, "웹 워크북", null, null, null, OriginalWorkbookType.MAIN);
+        ReflectionTestUtils.setField(trackWorkbook, "id", 1L);
+        given(loadOriginalWorkbookPort.getById(1L)).willReturn(trackWorkbook);
+        given(getChallengerUseCase.getAllByMemberId(2L)).willReturn(List.of(ChallengerInfo.builder()
+            .gisuId(9L).tracks(List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER))
+            .challengerStatus(ChallengerStatus.ACTIVE).build()));
+
+        // when / then: 수강만으로는 원본을 조회할 수 없다.
+        assertThatThrownBy(() -> service.getById(1L, 2L))
+            .isInstanceOf(CurriculumDomainException.class)
+            .extracting("baseCode").isEqualTo(CurriculumErrorCode.WORKBOOK_ACCESS_DENIED);
+
+        // given / when / then: 같은 트랙 그룹 가입 후 조회한다.
+        given(getStudyGroupUseCase.findByMemberIdAndGisuIdAndTrack(2L, 9L, ChallengerTrack.WEB_PRODUCT_ENGINEER))
+            .willReturn(Optional.of(new StudyGroupInfo(
+                10L, "웹 그룹", 9L, null, Instant.EPOCH, List.of(), List.of(2L),
+                ChallengerTrack.WEB_PRODUCT_ENGINEER)));
+        assertThat(service.getById(1L, 2L).originalWorkbookId()).isEqualTo(1L);
+
+        // given / when / then: 비활성 상태가 되면 그룹 소속이 남아도 조회하지 못한다.
+        given(getChallengerUseCase.getAllByMemberId(2L)).willReturn(List.of(ChallengerInfo.builder()
+            .gisuId(9L).tracks(List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER))
+            .challengerStatus(ChallengerStatus.WITHDRAWN).build()));
+        assertThatThrownBy(() -> service.getById(1L, 2L))
+            .isInstanceOf(CurriculumDomainException.class)
+            .extracting("baseCode").isEqualTo(CurriculumErrorCode.WORKBOOK_ACCESS_DENIED);
+    }
+
 }
