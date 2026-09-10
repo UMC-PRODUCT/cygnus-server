@@ -85,6 +85,17 @@ public class Challenger extends BaseEntity {
         this(memberId, part, List.of(), gisuId);
     }
 
+    /**
+     * 수강 없이 기수에 소속된 챌린저를 생성한다. 운영진 권한은 별도 역할로 부여한다.
+     */
+    public static Challenger createWithoutEnrollment(Long memberId, Long gisuId) {
+        Challenger challenger = new Challenger();
+        challenger.memberId = memberId;
+        challenger.gisuId = gisuId;
+        challenger.status = ChallengerStatus.ACTIVE;
+        return challenger;
+    }
+
     public void validateChallengerStatus() {
         if (this.status != ChallengerStatus.ACTIVE) {
             throw new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_NOT_ACTIVE);

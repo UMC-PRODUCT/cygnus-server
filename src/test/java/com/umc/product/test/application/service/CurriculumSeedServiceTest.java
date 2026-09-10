@@ -1,18 +1,38 @@
 package com.umc.product.test.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.curriculum.application.port.in.command.ManageCurriculumUseCase;
 import com.umc.product.curriculum.application.port.in.command.ManageOriginalWorkbookMissionUseCase;
 import com.umc.product.curriculum.application.port.in.command.ManageOriginalWorkbookUseCase;
@@ -22,18 +42,12 @@ import com.umc.product.curriculum.application.port.in.command.dto.curriculum.Cre
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.ChangeOriginalWorkbookStatusCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.CreateOriginalWorkbookCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.CreateOriginalWorkbookMissionCommand;
+import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
+import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.test.application.port.in.command.dto.SeedCurriculumCommand;
 import com.umc.product.test.application.port.in.command.dto.SeedCurriculumResult;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class CurriculumSeedServiceTest {
@@ -56,8 +70,10 @@ class CurriculumSeedServiceTest {
 
     @BeforeEach
     void setUp() {
-        lenient().when(dummyCurriculumFactory.nextCurriculumCommand(anyLong(), any()))
-            .thenReturn(mock(CreateCurriculumCommand.class));
+        lenient().when(getGisuUseCase.getById(anyLong()))
+            .thenAnswer(invocation -> new GisuInfo(invocation.getArgument(0), 9L, null, null, true));
+        lenient().when(dummyCurriculumFactory.nextCurriculumCommand(anyLong(), any(), any()))
+            .thenCallRealMethod();
         lenient().when(dummyCurriculumFactory.nextWeeklyCurriculumCommand(anyLong(), anyLong()))
             .thenReturn(mock(CreateWeeklyCurriculumCommand.class));
         lenient().when(dummyCurriculumFactory.nextOriginalWorkbookCommand(anyLong(), anyLong()))
@@ -74,7 +90,7 @@ class CurriculumSeedServiceTest {
         givenSequentialIds();
 
         // When
-        SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(gisuId, 1, 0, null, null));
+        SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(gisuId, 1, 0, null, null, null));
 
         // Then
         long expectedPartCount = java.util.Arrays.stream(ChallengerPart.values())
@@ -92,7 +108,7 @@ class CurriculumSeedServiceTest {
 
         // When - 2 파트 × 4 주차
         SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
-            gisuId, 4, 0, List.of(ChallengerPart.WEB, ChallengerPart.SPRINGBOOT), null
+            gisuId, 4, 0, List.of(ChallengerPart.WEB, ChallengerPart.SPRINGBOOT), null, null
         ));
 
         // Then
@@ -110,7 +126,7 @@ class CurriculumSeedServiceTest {
 
         // When - 1 파트 × 2 주차 × 3 미션
         SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
-            gisuId, 2, 3, List.of(ChallengerPart.WEB), null
+            gisuId, 2, 3, List.of(ChallengerPart.WEB), null, null
         ));
 
         // Then
@@ -135,7 +151,7 @@ class CurriculumSeedServiceTest {
 
         // When - 2 파트 시딩
         SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
-            gisuId, 2, 0, List.of(ChallengerPart.WEB, ChallengerPart.SPRINGBOOT), null
+            gisuId, 2, 0, List.of(ChallengerPart.WEB, ChallengerPart.SPRINGBOOT), null, null
         ));
 
         // Then - 1번째 실패, 2번째 성공
@@ -153,7 +169,7 @@ class CurriculumSeedServiceTest {
 
         // When
         SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
-            gisuId, 1, 0, List.of(ChallengerPart.WEB), 999L
+            gisuId, 1, 0, List.of(ChallengerPart.WEB), null, 999L
         ));
 
         // Then
@@ -170,7 +186,7 @@ class CurriculumSeedServiceTest {
 
         // When
         SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
-            gisuId, 3, 0, List.of(ChallengerPart.WEB, ChallengerPart.SPRINGBOOT), null
+            gisuId, 3, 0, List.of(ChallengerPart.WEB, ChallengerPart.SPRINGBOOT), null, null
         ));
 
         // Then
@@ -191,7 +207,7 @@ class CurriculumSeedServiceTest {
 
         // When
         SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
-            gisuId, 1, 0, List.of(ChallengerPart.WEB), null
+            gisuId, 1, 0, List.of(ChallengerPart.WEB), null, null
         ));
 
         // Then
@@ -210,7 +226,7 @@ class CurriculumSeedServiceTest {
 
         // When - 1 파트 × 2 주차 = 2 워크북
         SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
-            gisuId, 2, 0, List.of(ChallengerPart.WEB), 999L
+            gisuId, 2, 0, List.of(ChallengerPart.WEB), null, 999L
         ));
 
         // Then
@@ -228,7 +244,7 @@ class CurriculumSeedServiceTest {
             org.mockito.ArgumentCaptor.forClass(List.class);
 
         // When - 1 파트 × 3 주차 = 3 워크북
-        sut.seed(new SeedCurriculumCommand(gisuId, 3, 0, List.of(ChallengerPart.WEB), 777L));
+        sut.seed(new SeedCurriculumCommand(gisuId, 3, 0, List.of(ChallengerPart.WEB), null, 777L));
 
         // Then
         verify(manageOriginalWorkbookUseCase).changeStatusForRelease(captor.capture());
@@ -245,7 +261,7 @@ class CurriculumSeedServiceTest {
 
         // When
         SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
-            null, 0, 0, List.of(), null
+            null, 0, 0, List.of(), null, null
         ));
 
         // Then - parts 가 empty 라 기본 파트 사용, 0 주차로는 weekly 미생성 자체 검증
@@ -262,11 +278,109 @@ class CurriculumSeedServiceTest {
 
         // When
         SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
-            gisuId, 1, 0, List.of(ChallengerPart.ADMIN, ChallengerPart.WEB), null
+            gisuId, 1, 0, List.of(ChallengerPart.ADMIN, ChallengerPart.WEB), null, null
         ));
 
         // Then - WEB 1개만 생성
         assertThat(result.createdCurriculumIds()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("TRACK 기수에서 트랙을 생략하면 기본 트랙 네 개의 커리큘럼과 워크북을 생성한다")
+    void 기본_트랙_시딩() {
+        // Given
+        given(getGisuUseCase.getById(11L))
+            .willReturn(new GisuInfo(11L, 11L, null, null, true, GisuLearningType.TRACK));
+        givenSequentialIds();
+        ArgumentCaptor<CreateCurriculumCommand> captor = ArgumentCaptor.forClass(CreateCurriculumCommand.class);
+
+        // When
+        SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(11L, 2, 1, null, null, null));
+
+        // Then
+        assertThat(result.createdCurriculumIds()).hasSize(4);
+        assertThat(result.createdWeeklyCurriculumIds()).hasSize(8);
+        assertThat(result.createdOriginalWorkbookIds()).hasSize(8);
+        assertThat(result.createdMissionIds()).hasSize(8);
+        verify(manageCurriculumUseCase, times(4)).create(captor.capture());
+        assertThat(captor.getAllValues()).allSatisfy(command -> {
+            assertThat(command.gisuId()).isEqualTo(11L);
+            assertThat(command.part()).isNull();
+        });
+        assertThat(captor.getAllValues()).extracting(CreateCurriculumCommand::track)
+            .containsExactly(ChallengerTrack.PLAN, ChallengerTrack.DESIGN,
+                ChallengerTrack.WEB_PRODUCT_ENGINEER, ChallengerTrack.MOBILE_PRODUCT_ENGINEER);
+    }
+
+    @Test
+    @DisplayName("TRACK 기수에서 지정한 트랙만 중복 없이 생성하고 워크북을 공개한다")
+    void 지정_트랙_시딩() {
+        // Given
+        given(getGisuUseCase.getById(11L))
+            .willReturn(new GisuInfo(11L, 11L, null, null, true, GisuLearningType.TRACK));
+        givenSequentialIds();
+        ArgumentCaptor<CreateCurriculumCommand> captor = ArgumentCaptor.forClass(CreateCurriculumCommand.class);
+
+        // When
+        SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
+            11L, 1, 0, null,
+            List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER, ChallengerTrack.WEB_PRODUCT_ENGINEER), 999L
+        ));
+
+        // Then
+        assertThat(result.createdCurriculumIds()).hasSize(1);
+        assertThat(result.released()).isTrue();
+        verify(manageCurriculumUseCase).create(captor.capture());
+        assertThat(captor.getValue().track()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        assertThat(captor.getValue().part()).isNull();
+        verify(manageOriginalWorkbookUseCase).changeStatusForRelease(any());
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidLearningTargets")
+    @DisplayName("기수와 맞지 않거나 null을 포함한 학습 대상은 데이터 생성 전에 거부한다")
+    void 잘못된_학습_대상_거부(
+        GisuLearningType learningType, List<ChallengerPart> parts, List<ChallengerTrack> tracks
+    ) {
+        // Given
+        given(getGisuUseCase.getById(11L))
+            .willReturn(new GisuInfo(11L, 11L, null, null, true, learningType));
+        SeedCurriculumCommand command = new SeedCurriculumCommand(11L, 1, 1, parts, tracks, null);
+
+        // When / Then
+        assertThatThrownBy(() -> sut.seed(command))
+            .isInstanceOf(CurriculumDomainException.class)
+            .extracting("baseCode").isEqualTo(CurriculumErrorCode.INVALID_CURRICULUM_LEARNING_TYPE);
+        verifyNoInteractions(manageCurriculumUseCase, manageWeeklyCurriculumUseCase,
+            manageOriginalWorkbookUseCase, manageOriginalWorkbookMissionUseCase);
+    }
+
+    @Test
+    @DisplayName("기본 트랙과 PLUS를 함께 요청하면 어느 커리큘럼도 생성하지 않는다")
+    void PLUS_트랙_사전_거부() {
+        // Given
+        given(getGisuUseCase.getById(11L))
+            .willReturn(new GisuInfo(11L, 11L, null, null, true, GisuLearningType.TRACK));
+        SeedCurriculumCommand command = new SeedCurriculumCommand(
+            11L, 1, 1, null, List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER, ChallengerTrack.INFRA_PLUS), null
+        );
+
+        // When / Then
+        assertThatThrownBy(() -> sut.seed(command))
+            .isInstanceOf(CurriculumDomainException.class)
+            .extracting("baseCode").isEqualTo(CurriculumErrorCode.UNSUPPORTED_CURRICULUM_TRACK);
+        verifyNoInteractions(manageCurriculumUseCase, manageWeeklyCurriculumUseCase,
+            manageOriginalWorkbookUseCase, manageOriginalWorkbookMissionUseCase);
+    }
+
+    private static Stream<Arguments> invalidLearningTargets() {
+        return Stream.of(
+            Arguments.of(GisuLearningType.TRACK, List.of(ChallengerPart.WEB), null),
+            Arguments.of(GisuLearningType.PART, null, List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER)),
+            Arguments.of(GisuLearningType.TRACK, List.of(ChallengerPart.WEB), List.of(ChallengerTrack.DESIGN)),
+            Arguments.of(GisuLearningType.PART, Arrays.asList(ChallengerPart.WEB, null), null),
+            Arguments.of(GisuLearningType.TRACK, null, Arrays.asList(ChallengerTrack.WEB_PRODUCT_ENGINEER, null))
+        );
     }
 
     private void givenSequentialIds() {

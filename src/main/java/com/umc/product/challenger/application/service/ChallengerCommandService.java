@@ -62,27 +62,29 @@ public class ChallengerCommandService implements ManageChallengerUseCase, AddCha
                 throw new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_ALREADY_EXISTS);
             });
 
-        validateTrackGisuCreation(command);
-        Challenger challenger = Challenger.builder()
-            .memberId(command.memberId())
-            .part(command.part())
-            .tracks(command.tracks())
-            .gisuId(command.gisuId())
-            .build();
+        Challenger challenger = createChallengerForGisu(command);
 
         Challenger savedChallenger = saveChallengerPort.save(challenger);
         evictAuthoritySnapshotCacheUseCase.evictByMemberId(savedChallenger.getMemberId());
         return savedChallenger.getId();
     }
 
-    private void validateTrackGisuCreation(CreateChallengerCommand command) {
-        if (getGisuUseCase.getById(command.gisuId()).learningType() != GisuLearningType.TRACK) {
-            return;
+    private Challenger createChallengerForGisu(CreateChallengerCommand command) {
+        if (getGisuUseCase.getById(command.gisuId()).learningType() == GisuLearningType.TRACK) {
+            if (command.part() != null
+                || command.tracks().stream().anyMatch(track -> track == null || !track.isBasic())) {
+                throw new ChallengerDomainException(ChallengerErrorCode.INVALID_CHALLENGER_LEARNING_TYPE);
+            }
+            if (command.tracks().isEmpty()) {
+                return Challenger.createWithoutEnrollment(command.memberId(), command.gisuId());
+            }
         }
-        if (command.part() != null || command.tracks() == null || command.tracks().isEmpty()
-            || command.tracks().stream().anyMatch(track -> track == null || !track.isBasic())) {
-            throw new ChallengerDomainException(ChallengerErrorCode.INVALID_CHALLENGER_LEARNING_TYPE);
-        }
+        return Challenger.builder()
+            .memberId(command.memberId())
+            .part(command.part())
+            .tracks(command.tracks())
+            .gisuId(command.gisuId())
+            .build();
     }
 
     /**
@@ -94,15 +96,8 @@ public class ChallengerCommandService implements ManageChallengerUseCase, AddCha
     public List<Long> createChallengerBulk(List<CreateChallengerCommand> commands) {
         // TODO: Dev 환경에서만 사용할 것, Prod에서 사용하고자 하는 경우 반드시 검증 로직을 추가하세요.
         validateEnvIsNotProduction();
-        commands.forEach(this::validateTrackGisuCreation);
-
         List<Challenger> challengers = commands.stream()
-            .map(command -> Challenger.builder()
-                .memberId(command.memberId())
-                .part(command.part())
-                .tracks(command.tracks())
-                .gisuId(command.gisuId())
-                .build())
+            .map(this::createChallengerForGisu)
             .toList();
 
         List<Challenger> savedChallengers = saveChallengerPort.saveAll(challengers);

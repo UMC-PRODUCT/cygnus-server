@@ -17,13 +17,18 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterWithSchoolsInfo;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.test.application.port.in.command.dto.SeedBulkDataCommand;
 import com.umc.product.test.application.port.in.command.dto.SeedBulkDataResult;
 import com.umc.product.test.application.port.out.BulkSeedPort;
 import com.umc.product.test.application.port.out.dto.BulkSeedBaseIds;
+import com.umc.product.test.application.port.out.dto.SeedChallengerRow;
 import com.umc.product.test.application.port.out.dto.SeedMemberRow;
 import com.umc.product.test.application.port.out.dto.SeedScheduleParticipantRow;
 
@@ -41,6 +46,8 @@ class BulkSeedServiceTest {
     ArgumentCaptor<List<SeedMemberRow>> memberCaptor;
     @Captor
     ArgumentCaptor<List<SeedScheduleParticipantRow>> participantCaptor;
+    @Captor
+    ArgumentCaptor<List<SeedChallengerRow>> challengerCaptor;
 
     @InjectMocks
     BulkSeedService sut;
@@ -49,7 +56,8 @@ class BulkSeedServiceTest {
 
     @BeforeEach
     void setUp() {
-        given(getGisuUseCase.getActiveGisuId()).willReturn(GISU_ID);
+        given(getGisuUseCase.getActiveGisu())
+            .willReturn(new GisuInfo(GISU_ID, 9L, null, null, true, GisuLearningType.PART));
         // 학교 10개 (id 1..10) — 상위 5개(1..5)가 스큐 대상
         List<ChapterWithSchoolsInfo.SchoolInfo> schools = LongStream.rangeClosed(1, 10)
             .mapToObj(id -> new ChapterWithSchoolsInfo.SchoolInfo(id, "학교" + id))
@@ -61,6 +69,46 @@ class BulkSeedServiceTest {
 
     private static SeedBulkDataCommand command(int memberCount) {
         return new SeedBulkDataCommand(memberCount, 2, 2, 3, 42L, 10);
+    }
+
+    @Test
+    @DisplayName("Track 기수에는 기본 Track을 순환 배정하고 Part를 저장하지 않는다")
+    void track_기수_기본_track_배정() {
+        // Given
+        given(getGisuUseCase.getActiveGisu())
+            .willReturn(new GisuInfo(GISU_ID, 11L, null, null, true, GisuLearningType.TRACK));
+
+        // When
+        sut.seed(command(8));
+
+        // Then
+        verify(bulkSeedPort).insertChallengers(challengerCaptor.capture());
+        assertThat(challengerCaptor.getValue()).allSatisfy(row -> {
+            assertThat(row.part()).isNull();
+            assertThat(row.tracks()).hasSize(1);
+            assertThat(row.gisuId()).isEqualTo(GISU_ID);
+        });
+        assertThat(challengerCaptor.getValue()).flatExtracting(SeedChallengerRow::tracks)
+            .containsExactly(
+                ChallengerTrack.PLAN, ChallengerTrack.DESIGN,
+                ChallengerTrack.WEB_PRODUCT_ENGINEER, ChallengerTrack.MOBILE_PRODUCT_ENGINEER,
+                ChallengerTrack.PLAN, ChallengerTrack.DESIGN,
+                ChallengerTrack.WEB_PRODUCT_ENGINEER, ChallengerTrack.MOBILE_PRODUCT_ENGINEER);
+    }
+
+    @Test
+    @DisplayName("Part 기수에는 기존 일곱 Part를 순환 배정하고 Track을 비워 둔다")
+    void part_기수_기존_part_배정() {
+        // Given // When
+        sut.seed(command(8));
+
+        // Then
+        verify(bulkSeedPort).insertChallengers(challengerCaptor.capture());
+        assertThat(challengerCaptor.getValue()).allSatisfy(row -> assertThat(row.tracks()).isEmpty());
+        assertThat(challengerCaptor.getValue()).extracting(SeedChallengerRow::part)
+            .containsExactly(
+                ChallengerPart.WEB, ChallengerPart.ANDROID, ChallengerPart.IOS, ChallengerPart.NODEJS,
+                ChallengerPart.SPRINGBOOT, ChallengerPart.DESIGN, ChallengerPart.PLAN, ChallengerPart.WEB);
     }
 
     @Test
