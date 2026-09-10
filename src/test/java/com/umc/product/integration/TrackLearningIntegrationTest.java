@@ -47,7 +47,9 @@ import com.umc.product.organization.application.port.in.command.ManageStudyGroup
 import com.umc.product.organization.application.port.in.command.dto.CreateGisuCommand;
 import com.umc.product.organization.application.port.in.command.dto.CreateStudyGroupCommand;
 import com.umc.product.organization.application.port.in.query.GetStudyGroupUseCase;
+import com.umc.product.organization.application.port.out.command.SaveGisuPort;
 import com.umc.product.organization.application.port.out.query.LoadGisuPort;
+import com.umc.product.organization.domain.Gisu;
 import com.umc.product.support.IntegrationTestSupport;
 import com.umc.product.support.fixture.ChapterFixture;
 import com.umc.product.support.fixture.SchoolFixture;
@@ -55,6 +57,7 @@ import com.umc.product.support.fixture.SchoolFixture;
 class TrackLearningIntegrationTest extends IntegrationTestSupport {
 
     @Autowired private ManageGisuUseCase manageGisuUseCase;
+    @Autowired private SaveGisuPort saveGisuPort;
     @Autowired private LoadGisuPort loadGisuPort;
     @Autowired private ChapterFixture chapterFixture;
     @Autowired private SchoolFixture schoolFixture;
@@ -82,8 +85,12 @@ class TrackLearningIntegrationTest extends IntegrationTestSupport {
     void registerAndStudy(GisuLearningType learningType) {
         // Given
         Instant now = Instant.now();
-        Long gisuId = manageGisuUseCase.create(new CreateGisuCommand(
-            99L, now.minus(1, ChronoUnit.DAYS), now.plus(90, ChronoUnit.DAYS), learningType));
+        Long gisuId = learningType == GisuLearningType.TRACK
+            ? manageGisuUseCase.create(new CreateGisuCommand(
+                99L, now.minus(1, ChronoUnit.DAYS), now.plus(90, ChronoUnit.DAYS)))
+            : saveGisuPort.save(Gisu.create(
+                99L, now.minus(1, ChronoUnit.DAYS), now.plus(90, ChronoUnit.DAYS), false,
+                GisuLearningType.PART)).getId();
         var chapter = chapterFixture.지부(loadGisuPort.getById(gisuId), "신규 지부");
         var school = schoolFixture.지부에_소속된_학교("학습 학교", chapter);
         var member = saveMemberPort.save(Member.create(

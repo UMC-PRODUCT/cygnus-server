@@ -40,18 +40,20 @@ public class ChallengerRecordResponseAssembler {
     private ChallengerRecordResponse infoToResponse(ChallengerRecordInfo recordInfo) {
         GisuInfo gisuInfo = getGisuUseCase.getById(recordInfo.gisuId());
         SchoolDetailInfo schoolInfo = getSchoolUseCase.getSchoolDetail(recordInfo.schoolId());
-        ChapterInfo chapterInfo = getChapterUseCase.getChapterById(recordInfo.chapterId());
+        ChapterInfo chapterInfo = recordInfo.chapterId() == null
+            ? null : getChapterUseCase.getChapterById(recordInfo.chapterId());
 
         return ChallengerRecordResponse.builder()
             .code(recordInfo.code())
             .part(recordInfo.part())
             .track(recordInfo.track())
+            .tracks(recordInfo.tracks())
             .gisuId(gisuInfo.gisuId())
             .gisu(gisuInfo.generation())
             .schoolId(schoolInfo.schoolId())
             .schoolName(schoolInfo.schoolName())
-            .chapterId(chapterInfo.id())
-            .chapterName(chapterInfo.name())
+            .chapterId(chapterInfo == null ? null : chapterInfo.id())
+            .chapterName(chapterInfo == null ? null : chapterInfo.name())
             .memberName(recordInfo.memberName())
             .challengerRoleType(recordInfo.challengerRoleType())
             .organizationId(recordInfo.organizationId())

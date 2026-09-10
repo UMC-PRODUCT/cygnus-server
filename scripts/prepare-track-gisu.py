@@ -28,9 +28,8 @@ def build_operations(config):
         operations.append({"key": key, "path": path, "body": body, "resultField": result_field})
 
     gisu = dict(config["gisu"])
-    if gisu.get("learningType", "TRACK") != "TRACK":
+    if gisu.pop("learningType", "TRACK") != "TRACK":
         raise ValueError("이 스크립트는 TRACK 기수를 준비합니다.")
-    gisu["learningType"] = "TRACK"
     add("gisu", "/api/v1/gisu", gisu)
     schools = set()
     for i, chapter in enumerate(config.get("chapters", [])):

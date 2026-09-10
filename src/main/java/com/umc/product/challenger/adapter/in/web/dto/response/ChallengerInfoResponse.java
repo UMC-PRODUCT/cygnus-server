@@ -55,8 +55,8 @@ public record ChallengerInfoResponse(
             .gisuId(gisuInfo.gisuId())
             .gisu(gisuInfo.generation())
             // 지부
-            .chapterId(chapterInfo.id())
-            .chapterName(chapterInfo.name())
+            .chapterId(chapterInfo == null ? null : chapterInfo.id())
+            .chapterName(chapterInfo == null ? null : chapterInfo.name())
             .part(info.part())
             .tracks(info.tracks())
             .challengerPoints(info.challengerPoints())
@@ -93,8 +93,8 @@ public record ChallengerInfoResponse(
             .gisuId(gisuInfo.gisuId())
             .gisu(gisuInfo.generation())
             // 지부
-            .chapterId(chapterInfo.id())
-            .chapterName(chapterInfo.name())
+            .chapterId(chapterInfo == null ? null : chapterInfo.id())
+            .chapterName(chapterInfo == null ? null : chapterInfo.name())
             // 파트
             .part(info.part())
             .tracks(info.tracks())
