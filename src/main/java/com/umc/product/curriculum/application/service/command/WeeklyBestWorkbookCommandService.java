@@ -16,6 +16,7 @@ import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.curriculum.application.port.in.command.ManageWeeklyBestWorkbookUseCase;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.CreateWeeklyBestWorkbookCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.EditWeeklyBestWorkbookCommand;
@@ -102,22 +103,25 @@ public class WeeklyBestWorkbookCommandService implements ManageWeeklyBestWorkboo
         var curriculum = weekly.getCurriculum();
         boolean groupMatches = curriculum.getGisuId().equals(group.gisuId())
             && curriculum.getPart() == group.part()
+            && curriculum.getTrack() == group.track()
             && group.memberIds().contains(memberId);
         if (!groupMatches) {
             throw new CurriculumDomainException(CurriculumErrorCode.STUDY_GROUP_NOT_MATCHED);
         }
 
         boolean active = getChallengerUseCase.getAllByMemberId(memberId).stream()
-            .anyMatch(challenger -> matches(challenger, curriculum.getGisuId(), curriculum.getPart()));
+            .anyMatch(challenger -> matches(
+                challenger, curriculum.getGisuId(), curriculum.getPart(), curriculum.getTrack()));
         if (!active) {
             throw new CurriculumDomainException(CurriculumErrorCode.BEST_WORKBOOK_REQUIREMENTS_NOT_MET);
         }
     }
 
-    private boolean matches(ChallengerInfo challenger, Long gisuId, ChallengerPart part) {
+    private boolean matches(ChallengerInfo challenger, Long gisuId, ChallengerPart part, ChallengerTrack track) {
         return ChallengerStatus.ACTIVE == challenger.challengerStatus()
             && gisuId.equals(challenger.gisuId())
-            && part == challenger.part();
+            && (track == null ? part == challenger.part()
+            : challenger.tracks() != null && challenger.tracks().contains(track));
     }
 
     private void validateDecisionAuthority(

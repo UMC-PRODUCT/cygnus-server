@@ -16,8 +16,15 @@ public record StudyMemberSubmissionQuery(
     Long studyGroupId,
     List<Long> weekNos,
     Long cursor,
-    int size
+    int size,
+    Long gisuId
 ) {
+
+    public StudyMemberSubmissionQuery(
+        Long requesterMemberId, Long studyGroupId, List<Long> weekNos, Long cursor, int size
+    ) {
+        this(requesterMemberId, studyGroupId, weekNos, cursor, size, null);
+    }
 
     public StudyMemberSubmissionQuery {
         weekNos = weekNos == null ? List.of() : List.copyOf(weekNos);

@@ -1,21 +1,25 @@
 package com.umc.product.test.application.service;
 
-import com.umc.product.curriculum.application.port.in.command.dto.curriculum.CreateCurriculumCommand;
-import com.umc.product.curriculum.application.port.in.command.dto.curriculum.CreateWeeklyCurriculumCommand;
-import com.umc.product.curriculum.application.port.in.command.dto.workbook.CreateOriginalWorkbookCommand;
-import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.CreateOriginalWorkbookMissionCommand;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.curriculum.domain.enums.MissionType;
-import com.umc.product.curriculum.domain.enums.OriginalWorkbookStatus;
-import com.umc.product.curriculum.domain.enums.OriginalWorkbookType;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
-import net.datafaker.Faker;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+
+import net.datafaker.Faker;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.curriculum.application.port.in.command.dto.curriculum.CreateCurriculumCommand;
+import com.umc.product.curriculum.application.port.in.command.dto.curriculum.CreateWeeklyCurriculumCommand;
+import com.umc.product.curriculum.application.port.in.command.dto.workbook.CreateOriginalWorkbookCommand;
+import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.CreateOriginalWorkbookMissionCommand;
+import com.umc.product.curriculum.domain.enums.MissionType;
+import com.umc.product.curriculum.domain.enums.OriginalWorkbookStatus;
+import com.umc.product.curriculum.domain.enums.OriginalWorkbookType;
 
 /**
  * datafaker 를 사용해 test 도메인 시딩용 더미 Curriculum Command 를 생성한다. ADR-017 참조.
@@ -36,13 +40,14 @@ public class DummyCurriculumFactory {
     private final Faker faker = new Faker(Locale.KOREAN);
 
     /**
-     * 커리큘럼 Command 생성. title 은 "{기수}기 {파트} 커리큘럼" 형식.
+     * 기수의 학습 방식에 맞는 파트 또는 트랙 커리큘럼 Command 를 생성한다.
      */
-    public CreateCurriculumCommand nextCurriculumCommand(Long gisuId, ChallengerPart part) {
+    public CreateCurriculumCommand nextCurriculumCommand(Long gisuId, ChallengerPart part, ChallengerTrack track) {
         return CreateCurriculumCommand.builder()
             .gisuId(gisuId)
             .part(part)
-            .title("%d기 %s 커리큘럼".formatted(gisuId, part.name()))
+            .track(track)
+            .title("%d기 %s 커리큘럼".formatted(gisuId, track != null ? track.name() : part.name()))
             .build();
     }
 

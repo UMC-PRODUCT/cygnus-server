@@ -48,7 +48,13 @@ public enum CurriculumErrorCode implements BaseCode {
     BEST_WORKBOOK_REQUIREMENTS_NOT_MET(HttpStatus.CONFLICT, "CURRICULUM-0034", "베스트 워크북 선정 조건을 충족하지 못했어요."),
     BEST_WORKBOOK_REASON_REQUIRED(HttpStatus.BAD_REQUEST, "CURRICULUM-0035", "베스트 워크북 선정 사유를 입력해주세요."),
     CHALLENGER_WORKBOOK_ALREADY_EXISTS(HttpStatus.CONFLICT, "CURRICULUM-0036",
-        "이미 배포된 챌린저 워크북이에요. 기존 워크북을 확인해주세요.");
+        "이미 배포된 챌린저 워크북이에요. 기존 워크북을 확인해주세요."),
+    INVALID_CURRICULUM_LEARNING_TYPE(HttpStatus.BAD_REQUEST, "CURRICULUM-0037",
+        "기수의 학습 방식에 맞는 파트 또는 트랙 하나를 선택해주세요."),
+    CURRICULUM_TRACK_REQUIRED(HttpStatus.BAD_REQUEST, "CURRICULUM-0038",
+        "조회할 기본 트랙을 선택해주세요."),
+    UNSUPPORTED_CURRICULUM_TRACK(HttpStatus.BAD_REQUEST, "CURRICULUM-0039",
+        "기본 트랙만 커리큘럼으로 운영할 수 있어요.");
 
     private final HttpStatus httpStatus;
     private final String code;

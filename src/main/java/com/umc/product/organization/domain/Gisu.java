@@ -1,15 +1,20 @@
 package com.umc.product.organization.domain;
 
+import java.time.Instant;
+
 import com.umc.product.common.BaseEntity;
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.organization.domain.vo.GisuPeriod;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -33,15 +38,26 @@ public class Gisu extends BaseEntity {
     @Embedded
     private GisuPeriod period;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "learning_type", nullable = false)
+    private GisuLearningType learningType;
+
     @Builder(access = AccessLevel.PRIVATE)
-    private Gisu(Long generation, GisuPeriod period, boolean isActive) {
+    private Gisu(Long generation, GisuPeriod period, boolean isActive, GisuLearningType learningType) {
         this.generation = generation;
         this.isActive = isActive;
         this.period = period;
+        this.learningType = learningType == null ? GisuLearningType.PART : learningType;
     }
 
     public static Gisu create(Long generation, Instant startAt, Instant endAt, boolean isActive) {
-        return new Gisu(generation, GisuPeriod.of(startAt, endAt), isActive);
+        return create(generation, startAt, endAt, isActive, GisuLearningType.PART);
+    }
+
+    public static Gisu create(
+        Long generation, Instant startAt, Instant endAt, boolean isActive, GisuLearningType learningType
+    ) {
+        return new Gisu(generation, GisuPeriod.of(startAt, endAt), isActive, learningType);
     }
 
     public Instant getStartAt() {

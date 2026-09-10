@@ -3,6 +3,7 @@ package com.umc.product.curriculum.application.port.in.query.dto;
 import java.util.List;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.curriculum.domain.enums.ChallengerWorkbookStatus;
 
 import lombok.Builder;
@@ -35,8 +36,19 @@ public record StudyMemberSubmissionInfo(
     Long studyGroupId,
     String studyGroupName,
     ChallengerPart part,
+    ChallengerTrack track,
     List<WeeklySubmissionInfo> weeks
 ) {
+
+    public StudyMemberSubmissionInfo(
+        Long studyGroupMemberId, Long memberId, String memberName, String nickname,
+        String schoolName, String profileImageUrl, Long studyGroupId, String studyGroupName,
+        ChallengerPart part, List<WeeklySubmissionInfo> weeks
+    ) {
+        this(studyGroupMemberId, memberId, memberName, nickname, schoolName, profileImageUrl,
+            studyGroupId, studyGroupName, part, null, weeks);
+    }
+
 
     public StudyMemberSubmissionInfo {
         weeks = weeks == null ? List.of() : List.copyOf(weeks);
@@ -61,5 +73,6 @@ public record StudyMemberSubmissionInfo(
         ChallengerWorkbookStatus status,
         boolean isBest
     ) {
+
     }
 }

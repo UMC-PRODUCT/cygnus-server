@@ -1,6 +1,7 @@
 package com.umc.product.test.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
@@ -8,9 +9,26 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.challenger.application.port.in.command.ManageChallengerUseCase;
+import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerCommand;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.common.domain.enums.GisuLearningType;
+import com.umc.product.common.domain.exception.CommonException;
 import com.umc.product.member.application.port.in.command.RegisterEmailMemberUseCase;
 import com.umc.product.member.application.port.in.command.dto.EmailRegisterMemberCommand;
 import com.umc.product.member.application.port.in.command.dto.TermConsents;
@@ -18,17 +36,9 @@ import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterWithSchoolsInfo;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.test.application.port.in.command.dto.SeedChallengersCommand;
 import com.umc.product.test.application.port.in.command.dto.SeedChallengersResult;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class ChallengerSeedServiceTest {
@@ -53,6 +63,8 @@ class ChallengerSeedServiceTest {
     @BeforeEach
     void setUp() {
         consents = List.of();
+        lenient().when(getGisuUseCase.getById(anyLong())).thenAnswer(inv ->
+            new GisuInfo(inv.getArgument(0), 10L, null, null, true, GisuLearningType.PART));
         lenient().when(getMemberUseCase.countAll()).thenReturn(0L);
         lenient().when(dummyMemberFactory.snapshotMandatoryConsents()).thenReturn(consents);
         lenient().when(dummyMemberFactory.nextEmailCommandWithSchool(anyLong(), anyLong(), any()))
@@ -188,5 +200,74 @@ class ChallengerSeedServiceTest {
             ids.add(sequence.getAndIncrement());
         }
         return ids;
+    }
+
+    @Test
+    @DisplayName("Track 목록을 생략하면 학교별 기본 네 Track의 챌린저를 생성한다")
+    void seedDefaultTracks() {
+        // Given
+        given(getGisuUseCase.getById(11L)).willReturn(
+            new GisuInfo(11L, 11L, null, null, true, GisuLearningType.TRACK));
+        given(getChapterUseCase.getChaptersWithSchoolsByGisuId(11L)).willReturn(List.of(
+            new ChapterWithSchoolsInfo(1L, "지부", List.of(new ChapterWithSchoolsInfo.SchoolInfo(101L, "학교")))));
+        given(manageChallengerUseCase.createChallengerBulk(any())).willReturn(List.of(99L));
+
+        // When
+        SeedChallengersResult result = sut.seed(new SeedChallengersCommand(11L, null, null, null, 1, null));
+
+        // Then
+        assertThat(result.totalCreated()).isEqualTo(4);
+        assertThat(result.perCellSummary()).extracting(SeedChallengersResult.PerCellSummary::track)
+            .containsExactly(ChallengerTrack.PLAN, ChallengerTrack.DESIGN,
+                ChallengerTrack.WEB_PRODUCT_ENGINEER, ChallengerTrack.MOBILE_PRODUCT_ENGINEER);
+        ArgumentCaptor<List<CreateChallengerCommand>> commands = ArgumentCaptor.forClass(List.class);
+        verify(manageChallengerUseCase, times(4)).createChallengerBulk(commands.capture());
+        assertThat(commands.getAllValues()).allSatisfy(batch -> {
+            assertThat(batch).hasSize(1);
+            assertThat(batch.getFirst().part()).isNull();
+            assertThat(batch.getFirst().tracks()).hasSize(1).doesNotContain(ChallengerTrack.INFRA_PLUS);
+        });
+    }
+
+    @Test
+    @DisplayName("Track 기수에 Part를 요청하면 회원을 생성하기 전에 거부한다")
+    void rejectPartBeforeCreatingMembers() {
+        // Given
+        given(getGisuUseCase.getById(11L)).willReturn(
+            new GisuInfo(11L, 11L, null, null, true, GisuLearningType.TRACK));
+
+        // When & Then
+        assertThatThrownBy(() -> sut.seed(new SeedChallengersCommand(
+            11L, 1, List.of(ChallengerPart.WEB), null)))
+            .isInstanceOf(CommonException.class);
+        verifyNoInteractions(registerEmailMemberUseCase, manageChallengerUseCase, dummyMemberFactory);
+    }
+
+    @Test
+    @DisplayName("PLUS 시딩은 회원을 생성하기 전에 거부한다")
+    void rejectPlusBeforeCreatingMembers() {
+        // Given
+        given(getGisuUseCase.getById(11L)).willReturn(
+            new GisuInfo(11L, 11L, null, null, true, GisuLearningType.TRACK));
+
+        // When & Then
+        assertThatThrownBy(() -> sut.seed(new SeedChallengersCommand(
+            11L, null, null, null, 1, List.of(ChallengerTrack.INFRA_PLUS))))
+            .isInstanceOf(CommonException.class);
+        verifyNoInteractions(registerEmailMemberUseCase, manageChallengerUseCase, dummyMemberFactory);
+    }
+
+    @Test
+    @DisplayName("Track 기수의 학교별 생성 수가 없으면 회원을 생성하기 전에 거부한다")
+    void rejectMissingTrackCountBeforeCreatingMembers() {
+        // Given
+        given(getGisuUseCase.getById(11L)).willReturn(
+            new GisuInfo(11L, 11L, null, null, true, GisuLearningType.TRACK));
+
+        // When & Then
+        assertThatThrownBy(() -> sut.seed(new SeedChallengersCommand(
+            11L, null, null, null, null, List.of(ChallengerTrack.PLAN))))
+            .isInstanceOf(CommonException.class);
+        verifyNoInteractions(registerEmailMemberUseCase, manageChallengerUseCase, dummyMemberFactory);
     }
 }

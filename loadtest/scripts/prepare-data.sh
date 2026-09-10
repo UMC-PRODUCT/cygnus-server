@@ -43,8 +43,10 @@ seed_api() {
   echo "[api] BASE_URL=$BASE_URL, count=$count"
 
   # 1) 활성 기수
-  local gisu_id
-  gisu_id="$(curl -fsS "$BASE_URL/api/v1/gisu/active" | jq -r '.result.gisuId // .result.id // empty')"
+  local gisu_info gisu_id learning_type
+  gisu_info="$(curl -fsS "$BASE_URL/api/v1/gisu/active")"
+  gisu_id="$(jq -r '.result.gisuId // .result.id // empty' <<<"$gisu_info")"
+  learning_type="$(jq -r '.result.learningType // "PART"' <<<"$gisu_info")"
   [ -n "$gisu_id" ] || {
     echo "활성 기수 조회 실패 (GET /api/v1/gisu/active)" >&2
     exit 1
@@ -63,7 +65,8 @@ seed_api() {
   #    챌린저 등록 실패 멤버는 seed.json 에서 제외한다 — schedules/me(@CheckAccess SCHEDULE READ)가
   #    챌린저 기록을 요구해 그 멤버로는 홈 시나리오가 403 을 맞기 때문.
   local parts=(WEB ANDROID IOS NODEJS SPRINGBOOT DESIGN PLAN)
-  local ts mid cid part i
+  local tracks=(PLAN DESIGN WEB_PRODUCT_ENGINEER MOBILE_PRODUCT_ENGINEER)
+  local ts mid cid part track challenger_body i
   local member_ids=()
   local challenger_member_ids=()
   local challenger_ids=()
@@ -80,10 +83,16 @@ seed_api() {
       echo "  member 생성 응답에 memberId 없음 (i=$i)" >&2
       continue
     }
-    part="${parts[$(((i - 1) % ${#parts[@]}))]}"
+    if [ "$learning_type" = "TRACK" ]; then
+      track="${tracks[$(((i - 1) % ${#tracks[@]}))]}"
+      challenger_body="{\"memberId\":$mid,\"gisuId\":$gisu_id,\"tracks\":[\"$track\"]}"
+    else
+      part="${parts[$(((i - 1) % ${#parts[@]}))]}"
+      challenger_body="{\"memberId\":$mid,\"gisuId\":$gisu_id,\"part\":\"$part\"}"
+    fi
     # 챌린저 등록 — 응답의 challengerId 를 첫 성공분만 운영진 후보로 보관 (스케줄/공지 생성 권한용)
     cid="$(api_post /test/seed/challenger \
-      "{\"memberId\":$mid,\"gisuId\":$gisu_id,\"part\":\"$part\"}" \
+      "$challenger_body" \
       | jq -r '.result.challengerId // empty')" \
       || {
         echo "  challenger 등록 실패 memberId=$mid (member/me 는 동작)" >&2

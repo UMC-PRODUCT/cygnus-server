@@ -24,7 +24,7 @@ public record CreateChallengerInfoRequest(
             .build();
     }
 
-    @AssertTrue(message = "챌린저 파트 또는 트랙이 필요합니다") public boolean isPartOrTracksPresent() {
-        return part != null || (tracks != null && !tracks.isEmpty());
+    @AssertTrue(message = "part 또는 tracks를 입력해주세요. 수강 없는 TRACK 기수 소속은 tracks를 빈 배열로 입력해주세요.") public boolean isPartOrTracksPresent() {
+        return part != null || tracks != null;
     }
 }

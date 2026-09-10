@@ -136,10 +136,12 @@ public class SeedController {
         operationId = "SEED-002",
         summary = "챌린저 분포 시딩",
         description = """
-            특정 기수에 대해 (Chapter, School, Part) 셀마다 countPerPartPerSchool 명의 더미 회원 +
-            챌린저를 함께 생성합니다.
-            gisuId 가 null 이면 활성 기수, parts 가 null/empty 면 ADMIN 제외 전 파트,
-            chapterIds 가 null/empty 면 해당 기수의 모든 Chapter 가 대상입니다.
+            특정 기수의 학교별로 더미 회원과 챌린저를 함께 생성합니다.
+            PART 기수는 parts와 countPerPartPerSchool을 사용하며, parts 생략 시 ADMIN 제외 전 파트가 대상입니다.
+            TRACK 기수는 tracks와 countPerTrackPerSchool을 사용하며, tracks 생략 시 기본 4개 트랙이 대상입니다.
+            각 Track 셀의 회원은 해당 Track 하나를 수강합니다. PLUS는 지원하지 않습니다.
+            gisuId 생략 시 활성 기수, chapterIds 생략 시 해당 기수의 모든 지부가 대상입니다.
+            학습 유형과 입력이 맞지 않으면 회원 생성 전에 거부합니다.
             """
     )
     @PostMapping("/challengers")
@@ -150,7 +152,12 @@ public class SeedController {
     @Operation(
         operationId = "SEED-002-C",
         summary = "테스트 챌린저 단건 생성",
-        description = "memberId, gisuId, part로 챌린저 1명을 만듭니다."
+        description = """
+            memberId와 gisuId로 챌린저 1명을 만듭니다.
+            PART 기수는 part, TRACK 기수는 복수 기본 tracks를 입력합니다. PLUS는 지원하지 않습니다.
+            수강 없는 운영진은 TRACK 기수에 tracks를 빈 배열로 입력한 뒤 challenger-role API로 역할을 부여합니다.
+            기수 소속 생성만으로 운영진 권한이 부여되지는 않습니다.
+            """
     )
     @PostMapping("/challenger")
     public CreateSeedChallengerResponse createChallenger(
@@ -240,9 +247,12 @@ public class SeedController {
         operationId = "SEED-004",
         summary = "Curriculum 시딩 (Curriculum · WeeklyCurriculum · OriginalWorkbook · Mission)",
         description = """
-            활성 기수(또는 지정 기수)에 대해 ADMIN 제외 파트별로 다음 골격을 시딩합니다.
-            Curriculum (1/파트) → WeeklyCurriculum (1~N 주차) → OriginalWorkbook (MAIN, READY) → Mission (M개).
+            활성 기수(또는 지정 기수)의 학습 유형에 맞춰 다음 골격을 시딩합니다.
+            PART 기수는 parts(생략 시 ADMIN 제외 전 파트), TRACK 기수는 tracks(생략 시 기본 4개 트랙)를 사용합니다.
+            Curriculum (1/파트 또는 트랙) → WeeklyCurriculum (1~N 주차) → OriginalWorkbook (MAIN, READY) → Mission (M개).
+            PLUS와 기수 학습 유형에 맞지 않는 입력은 생성 전에 거부합니다.
             releaseRequesterMemberId 가 지정되면 모든 워크북을 READY → RELEASED 로 전환합니다.
+            스터디 그룹 배정이나 개인 워크북 수령은 포함하지 않습니다.
             각 단계별로 실패 격리되며, 단계별 실패 카운트가 응답에 포함됩니다.
             """
     )

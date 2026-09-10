@@ -19,9 +19,14 @@ public record GetStudyMemberSubmissionsRequest(
     @Positive Long studyGroupId,
     List<@Positive Long> weekNos,
     @Positive Long cursor,
-    @Positive @Max(100) Integer size
+    @Positive @Max(100) Integer size,
+    @Positive Long gisuId
 ) {
     private static final int DEFAULT_SIZE = 20;
+
+    public GetStudyMemberSubmissionsRequest(Long studyGroupId, List<Long> weekNos, Long cursor, Integer size) {
+        this(studyGroupId, weekNos, cursor, size, null);
+    }
 
     public StudyMemberSubmissionQuery toQuery(Long requesterMemberId) {
         return new StudyMemberSubmissionQuery(
@@ -29,7 +34,8 @@ public record GetStudyMemberSubmissionsRequest(
             studyGroupId,
             weekNos == null ? List.of() : weekNos,
             cursor,
-            resolvedSize()
+            resolvedSize(),
+            gisuId
         );
     }
 

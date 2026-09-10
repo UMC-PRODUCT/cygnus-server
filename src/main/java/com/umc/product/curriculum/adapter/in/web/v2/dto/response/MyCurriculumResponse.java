@@ -1,12 +1,15 @@
 package com.umc.product.curriculum.adapter.in.web.v2.dto.response;
 
+import java.time.Instant;
+import java.util.List;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo;
 import com.umc.product.curriculum.domain.enums.MissionType;
 import com.umc.product.curriculum.domain.enums.OriginalWorkbookType;
-import lombok.Builder;
 
-import java.time.Instant;
-import java.util.List;
+import lombok.Builder;
 
 /**
  * 커리큘럼, 주차별 커리큘럼, 원본 워크북, 챌린저 워크북, 미션 제출물, 피드백 정보, 베스트 워크북 정보를 나타내는 DTO
@@ -15,13 +18,21 @@ import java.util.List;
 public record MyCurriculumResponse(
     Long curriculumId,
     String title,
-    List<MyWeeklyCurriculumResponse> weeks
+    List<MyWeeklyCurriculumResponse> weeks,
+    ChallengerPart part,
+    ChallengerTrack track
 ) {
+
+    public MyCurriculumResponse(Long curriculumId, String title, List<MyWeeklyCurriculumResponse> weeks) {
+        this(curriculumId, title, weeks, null, null);
+    }
 
     public static MyCurriculumResponse from(MyCurriculumInfo info) {
         return MyCurriculumResponse.builder()
             .curriculumId(info.curriculumId())
             .title(info.title())
+            .part(info.part())
+            .track(info.track())
             .weeks(info.weeks().stream()
                 .map(MyWeeklyCurriculumResponse::from)
                 .toList())

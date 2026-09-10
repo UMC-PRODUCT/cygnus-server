@@ -10,6 +10,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberPageInfo;
@@ -47,6 +48,15 @@ public class StudyGroupPersistenceAdapter implements SaveStudyGroupPort, LoadStu
         ChallengerPart part
     ) {
         return studyGroupQueryRepository.findEntityByMemberIdAndGisuIdAndPart(memberId, gisuId, part);
+    }
+
+    @Override
+    public Optional<StudyGroup> findEntityByMemberIdAndGisuIdAndTrack(
+        Long memberId,
+        Long gisuId,
+        ChallengerTrack track
+    ) {
+        return studyGroupQueryRepository.findEntityByMemberIdAndGisuIdAndTrack(memberId, gisuId, track);
     }
 
     @Override
@@ -128,6 +138,17 @@ public class StudyGroupPersistenceAdapter implements SaveStudyGroupPort, LoadStu
         }
 
         return studyGroupQueryRepository.findConflictedMemberIds(gisuId, part, memberIds, excludedStudyGroupId);
+    }
+
+    @Override
+    public Set<Long> findConflictedTrackMemberIds(
+        Long gisuId, ChallengerTrack track, Set<Long> memberIds, Long excludedStudyGroupId
+    ) {
+        if (memberIds == null || memberIds.isEmpty()) {
+            return Set.of();
+        }
+
+        return studyGroupQueryRepository.findConflictedTrackMemberIds(gisuId, track, memberIds, excludedStudyGroupId);
     }
 
     @Override

@@ -18,7 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 /**
  * 스터디 그룹 조회 API
  *
- * <p>모든 조회는 현재 활성화된 기수(isActive=true) 기준으로 동작합니다.</p>
+ * <p>목록 조회는 gisuId로 준비 기수를 선택할 수 있으며, 생략하면 활성 기수를 사용합니다.</p>
  *
  * <h2>API 흐름</h2>
  * <pre>
@@ -40,7 +40,8 @@ public interface StudyGroupQueryControllerApi {
     CursorResponse<StudyGroupResponse> getStudyGroups(
         @Parameter(hidden = true) MemberPrincipal memberPrincipal,
         @Parameter(description = "페이지 커서 (첫 페이지는 null)") Long cursor,
-        @Parameter(description = "페이지 크기 (기본 20, 최대 100)") int size);
+        @Parameter(description = "페이지 크기 (기본 20, 최대 100)") int size,
+        @Parameter(description = "기수 ID (생략하면 활성 기수)") Long gisuId);
 
     @Operation(operationId = "STUDY-GROUP-103", summary = "내가 관리하는 스터디 그룹 이름 목록 조회",
         description = """
@@ -55,10 +56,11 @@ public interface StudyGroupQueryControllerApi {
         @ApiResponse(responseCode = "200", description = "조회 성공")
     })
     StudyGroupNameResponse getStudyGroupNames(
-        @Parameter(hidden = true) MemberPrincipal memberPrincipal);
+        @Parameter(hidden = true) MemberPrincipal memberPrincipal,
+        @Parameter(description = "기수 ID (생략하면 활성 기수)") Long gisuId);
 
     @Operation(operationId = "STUDY-GROUP-102", summary = "스터디 그룹 정보 조회",
-        description = "`studyGroupId` 에 해당하는 스터디 그룹의 정보를 조회합니다. (그룹명, 파트, 기수, 스터디원, 파트장 정보)")
+        description = "`studyGroupId` 에 해당하는 스터디 그룹의 정보를 조회합니다. (그룹명, 파트 또는 트랙, 기수, 스터디원, 파트장 정보)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "조회 성공",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = StudyGroupMemberResponse.class)))),

@@ -93,9 +93,11 @@ public class WorkbookQueryV2Controller {
     )
     @GetMapping("/workbook-submissions/weeks")
     public List<Long> getSubmissionWeeks(
-        @RequestParam(required = false) Long studyGroupId
+        @RequestParam(required = false) Long studyGroupId,
+        @RequestParam(required = false) Long gisuId
     ) {
-        return getStudyMemberSubmissionUseCase.getAvailableWeekNos(studyGroupId);
+        return gisuId == null ? getStudyMemberSubmissionUseCase.getAvailableWeekNos(studyGroupId)
+            : getStudyMemberSubmissionUseCase.getAvailableWeekNos(studyGroupId, gisuId);
     }
 
     @Operation(

@@ -1,11 +1,23 @@
 package com.umc.product.organization.adapter.in.web.dto.request;
 
-import com.umc.product.organization.application.port.in.command.dto.CreateGisuCommand;
-import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 
-public record CreateGisuRequest(@NotNull Long generation, @NotNull Instant startAt, @NotNull Instant endAt) {
+import com.umc.product.common.domain.enums.GisuLearningType;
+import com.umc.product.organization.application.port.in.command.dto.CreateGisuCommand;
+
+import jakarta.validation.constraints.NotNull;
+
+public record CreateGisuRequest(
+    @NotNull Long generation,
+    @NotNull Instant startAt,
+    @NotNull Instant endAt,
+    GisuLearningType learningType
+) {
+    public CreateGisuRequest(Long generation, Instant startAt, Instant endAt) {
+        this(generation, startAt, endAt, GisuLearningType.PART);
+    }
+
     public CreateGisuCommand toCommand() {
-        return new CreateGisuCommand(generation, startAt, endAt);
+        return new CreateGisuCommand(generation, startAt, endAt, learningType);
     }
 }

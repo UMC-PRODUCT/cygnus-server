@@ -1,14 +1,17 @@
 package com.umc.product.challenger.adapter.out.persistence;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Component;
+
 import com.umc.product.challenger.application.port.out.LoadChallengerRecordPort;
 import com.umc.product.challenger.application.port.out.SaveChallengerRecordPort;
 import com.umc.product.challenger.domain.ChallengerRecord;
 import com.umc.product.challenger.domain.exception.ChallengerDomainException;
 import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
-import java.util.List;
-import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
@@ -35,6 +38,12 @@ public class ChallengerRecordPersistenceAdapter implements LoadChallengerRecordP
     @Override
     public ChallengerRecord getByCode(String code) {
         return repository.findByCode(code)
+            .orElseThrow(() -> new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_NOT_FOUND));
+    }
+
+    @Override
+    public ChallengerRecord getByCodeForUpdate(String code) {
+        return repository.findByCodeForUpdate(code)
             .orElseThrow(() -> new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_NOT_FOUND));
     }
 

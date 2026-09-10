@@ -25,6 +25,10 @@ public interface GisuJpaRepository extends Repository<Gisu, Long> {
 
     Optional<Gisu> findById(Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT g FROM Gisu g WHERE g.id = :id")
+    Optional<Gisu> findByIdForUpdate(Long id);
+
     List<Gisu> findAllByOrderByGenerationDesc();
 
     Page<Gisu> findAllByOrderByGenerationDesc(Pageable pageable);

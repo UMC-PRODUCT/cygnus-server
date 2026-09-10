@@ -23,6 +23,8 @@ public interface LoadGisuPort {
 
     Gisu getById(Long gisuId);
 
+    Gisu getByIdForUpdate(Long gisuId);
+
     List<Gisu> listByIds(Set<Long> gisuIds);
 
     List<Gisu> listByGenerations(Set<Long> generations);

@@ -30,4 +30,6 @@ public interface GetStudyMemberSubmissionUseCase {
      * @throws com.umc.product.organization.exception.OrganizationDomainException {@code studyGroupId} 가 존재하지 않을 때
      */
     List<Long> getAvailableWeekNos(Long studyGroupId);
+
+    List<Long> getAvailableWeekNos(Long studyGroupId, Long gisuId);
 }

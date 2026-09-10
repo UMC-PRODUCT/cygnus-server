@@ -47,6 +47,12 @@ public class GisuPersistenceAdapter implements SaveGisuPort, LoadGisuPort {
     }
 
     @Override
+    public Gisu getByIdForUpdate(Long gisuId) {
+        return gisuJpaRepository.findByIdForUpdate(gisuId).orElseThrow(
+            () -> new OrganizationDomainException(OrganizationErrorCode.GISU_NOT_FOUND));
+    }
+
+    @Override
     public List<Gisu> listByIds(Set<Long> gisuIds) {
         return gisuJpaRepository.findByIdIn(gisuIds);
     }

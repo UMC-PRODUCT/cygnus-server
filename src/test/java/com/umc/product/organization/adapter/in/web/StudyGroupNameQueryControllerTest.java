@@ -51,6 +51,19 @@ class StudyGroupNameQueryControllerTest {
     }
 
     @Test
+    void 준비기수를_지정하여_스터디_이름을_조회한다() throws Exception {
+        // given
+        given(getStudyGroupUseCase.getStudyGroupNames(99L, 11L))
+            .willReturn(List.of(new StudyGroupNameInfo(3L, "웹 트랙 스터디")));
+
+        // when & then
+        mockMvc.perform(get("/api/v1/study-groups/names").param("gisuId", "11"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.studyGroups[0].name").value("웹 트랙 스터디"));
+        then(getStudyGroupUseCase).should().getStudyGroupNames(99L, 11L);
+    }
+
+    @Test
     @DisplayName("인증 회원 기준으로 관리 가능한 그룹 이름만 내려준다")
     void returnsManagedGroupNames() throws Exception {
         given(getStudyGroupUseCase.getStudyGroupNames(99L)).willReturn(List.of(

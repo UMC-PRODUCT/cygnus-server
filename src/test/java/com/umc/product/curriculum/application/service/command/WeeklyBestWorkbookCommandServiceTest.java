@@ -24,6 +24,7 @@ import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.CreateWeeklyBestWorkbookCommand;
 import com.umc.product.curriculum.application.port.out.LoadChallengerWorkbookPort;
 import com.umc.product.curriculum.application.port.out.LoadMissionFeedbackPort;
@@ -322,4 +323,42 @@ class WeeklyBestWorkbookCommandServiceTest {
         given(checkPermissionUseCase.loadSubject(50L)).willReturn(subject);
         given(staffPolicy.canManage(subject, GROUP_ID, MEMBER_ID, 9L)).willReturn(true);
     }
+
+    @Test
+    void 같은_기수라도_다른_트랙_그룹의_베스트로_선정하지_못한다() {
+        // given
+        WeeklyCurriculum trackWeek = WeeklyCurriculum.create(
+            Curriculum.createForTrack(9L, ChallengerTrack.WEB_PRODUCT_ENGINEER, "웹"),
+            1L, false, "1주차", Instant.EPOCH, Instant.MAX);
+        given(loadWeeklyCurriculumPort.getById(20L)).willReturn(trackWeek);
+        given(getStudyGroupUseCase.getById(GROUP_ID)).willReturn(new StudyGroupInfo(
+            GROUP_ID, "모바일 그룹", 9L, null, Instant.EPOCH, List.of(50L), List.of(MEMBER_ID),
+            ChallengerTrack.MOBILE_PRODUCT_ENGINEER));
+
+        // when / then
+        assertThatThrownBy(() -> service.selectBest(command(GROUP_ID)))
+            .isInstanceOf(CurriculumDomainException.class)
+            .extracting("baseCode").isEqualTo(CurriculumErrorCode.STUDY_GROUP_NOT_MATCHED);
+    }
+
+    @Test
+    void 그룹_트랙과_수강_트랙이_일치하면_기존_필수미션_조건으로_베스트를_선정한다() {
+        // given
+        Curriculum trackCurriculum = Curriculum.createForTrack(9L, ChallengerTrack.WEB_PRODUCT_ENGINEER, "웹");
+        ReflectionTestUtils.setField(weekly, "curriculum", trackCurriculum);
+        givenCommonEligibility();
+        given(getStudyGroupUseCase.getById(GROUP_ID)).willReturn(new StudyGroupInfo(
+            GROUP_ID, "웹 그룹", 9L, null, Instant.EPOCH, List.of(50L), List.of(MEMBER_ID),
+            ChallengerTrack.WEB_PRODUCT_ENGINEER));
+        given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of(ChallengerInfo.builder()
+            .memberId(MEMBER_ID).gisuId(9L).tracks(List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER))
+            .challengerStatus(ChallengerStatus.ACTIVE).build()));
+        given(loadMissionFeedbackPort.listByMissionSubmissionIdIn(List.of(400L)))
+            .willReturn(List.of(MissionFeedback.create(submission, 50L, "통과", FeedbackResult.PASS)));
+
+        // when / then
+        assertThatCode(() -> service.selectBest(command(GROUP_ID))).doesNotThrowAnyException();
+        verify(saveWeeklyBestWorkbookPort).save(any(WeeklyBestWorkbook.class));
+    }
+
 }

@@ -24,6 +24,7 @@ import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.DeleteChallengerWorkbookCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.DeployChallengerWorkbookCommand;
 import com.umc.product.curriculum.application.port.out.LoadChallengerWorkbookPort;
@@ -193,4 +194,59 @@ class ChallengerWorkbookCommandServiceTest {
             .isEqualTo(CurriculumErrorCode.WORKBOOK_HAS_SUBMISSIONS);
         verify(saveChallengerWorkbookPort, never()).delete(any());
     }
+
+    @Test
+    void 복수_트랙의_워크북은_각_트랙의_스터디에_배포한다() {
+        // given
+        OriginalWorkbook web = 트랙_워크북(ChallengerTrack.WEB_PRODUCT_ENGINEER, 101L);
+        OriginalWorkbook mobile = 트랙_워크북(ChallengerTrack.MOBILE_PRODUCT_ENGINEER, 102L);
+        given(loadOriginalWorkbookPort.batchGetByIds(List.of(101L, 102L))).willReturn(List.of(web, mobile));
+        given(getChallengerUseCase.getAllByMemberId(30L)).willReturn(List.of(ChallengerInfo.builder()
+            .memberId(30L).gisuId(9L).tracks(List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER,
+                ChallengerTrack.MOBILE_PRODUCT_ENGINEER)).challengerStatus(ChallengerStatus.ACTIVE).build()));
+        given(getStudyGroupUseCase.findByMemberIdAndGisuIdAndTrack(30L, 9L, ChallengerTrack.WEB_PRODUCT_ENGINEER))
+            .willReturn(Optional.of(new StudyGroupInfo(11L, "웹", 9L, null, Instant.EPOCH,
+                List.of(), List.of(30L), ChallengerTrack.WEB_PRODUCT_ENGINEER)));
+        given(getStudyGroupUseCase.findByMemberIdAndGisuIdAndTrack(30L, 9L, ChallengerTrack.MOBILE_PRODUCT_ENGINEER))
+            .willReturn(Optional.of(new StudyGroupInfo(12L, "모바일", 9L, null, Instant.EPOCH,
+                List.of(), List.of(30L), ChallengerTrack.MOBILE_PRODUCT_ENGINEER)));
+        given(saveChallengerWorkbookPort.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        var result = service.batchDeploy(DeployChallengerWorkbookCommand.builder()
+            .requestedMemberId(30L).originalWorkbookIds(List.of(101L, 102L)).build());
+
+        // then
+        assertThat(result).extracting("receivedStudyGroupId").containsExactly(11L, 12L);
+    }
+
+    @Test
+    void 수강하지_않은_트랙이나_다른_기수의_워크북은_배포하지_못한다() {
+        // given
+        OriginalWorkbook web = 트랙_워크북(ChallengerTrack.WEB_PRODUCT_ENGINEER, 101L);
+        given(loadOriginalWorkbookPort.batchGetByIds(List.of(101L))).willReturn(List.of(web));
+        given(getChallengerUseCase.getAllByMemberId(30L)).willReturn(List.of(
+            ChallengerInfo.builder().gisuId(9L).tracks(List.of(ChallengerTrack.MOBILE_PRODUCT_ENGINEER))
+                .challengerStatus(ChallengerStatus.ACTIVE).build(),
+            ChallengerInfo.builder().gisuId(8L).tracks(List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER))
+                .challengerStatus(ChallengerStatus.ACTIVE).build()));
+
+        // when / then
+        assertThatThrownBy(() -> service.batchDeploy(DeployChallengerWorkbookCommand.builder()
+            .requestedMemberId(30L).originalWorkbookIds(List.of(101L)).build()))
+            .isInstanceOf(CurriculumDomainException.class)
+            .extracting("baseCode").isEqualTo(CurriculumErrorCode.WORKBOOK_ACCESS_DENIED);
+        verify(saveChallengerWorkbookPort, never()).save(any());
+    }
+
+    private OriginalWorkbook 트랙_워크북(ChallengerTrack track, Long id) {
+        WeeklyCurriculum weekly = WeeklyCurriculum.create(Curriculum.createForTrack(9L, track, "트랙"),
+            1L, false, "1주차", Instant.EPOCH, Instant.MAX);
+        OriginalWorkbook result = OriginalWorkbook.createAsReady(
+            weekly, "워크북", null, null, null, OriginalWorkbookType.MAIN);
+        result.changeStatus(OriginalWorkbookStatus.RELEASED, 1L);
+        ReflectionTestUtils.setField(result, "id", id);
+        return result;
+    }
+
 }
