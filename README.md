@@ -2,7 +2,6 @@
 
 # UMC PRODUCT SERVER
 
-[![codecov](https://codecov.io/gh/UMC-PRODUCT/cygnus-server/graph/badge.svg?token=0GUPQZQ40J)](https://codecov.io/gh/UMC-PRODUCT/cygnus-server)
 ![GitHub Actions](https://github.com/UMC-PRODUCT/cygnus-server/actions/workflows/ci.yml/badge.svg)
 ![Version](https://img.shields.io/github/v/release/UMC-PRODUCT/cygnus-server)
 

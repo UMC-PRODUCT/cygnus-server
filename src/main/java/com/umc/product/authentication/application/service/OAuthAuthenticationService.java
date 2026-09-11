@@ -57,7 +57,6 @@ public class OAuthAuthenticationService implements OAuthAuthenticationUseCase {
         description = "'OAuth 로그인을 처리했습니다. provider=' + #result.provider() + ', existingMember=' + #result.isExistingMember()"
     )
     @Override
-    @Transactional(readOnly = true)
     public OAuthTokenLoginResult loginWithOAuthAttributes(OAuthAttributes oAuthAttributes) {
         log.info("OAuthAttributes 기반 로그인 시도: provider={}, hasEmail={}",
             oAuthAttributes.provider(), hasEmail(oAuthAttributes.email()));
