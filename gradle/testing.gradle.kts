@@ -1,7 +1,6 @@
 import org.gradle.api.GradleException
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.testing.Test
-import org.gradle.testing.jacoco.tasks.JacocoReport
 
 val checkDuplicateFlywayMigrationVersions by tasks.registering {
     group = "verification"
@@ -83,19 +82,9 @@ tasks.named<Test>("test") {
         println("=".repeat(50))
     }
 
-    finalizedBy(tasks.named("jacocoTestReport"))
-
     doLast {
         println("=".repeat(50))
         println("[test] 테스트가 완료되었습니다.")
         println("=".repeat(50))
-    }
-}
-
-tasks.named<JacocoReport>("jacocoTestReport") {
-    dependsOn(tasks.named("test"))
-    reports {
-        xml.required.set(true)
-        html.required.set(true)
     }
 }
