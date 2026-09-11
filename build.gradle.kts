@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.spotless)
     checkstyle
-    jacoco
 }
 
 apply(from = "gradle/documentation-catalog.gradle.kts")
