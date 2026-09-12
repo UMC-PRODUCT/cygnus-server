@@ -18,8 +18,8 @@ public record OAuthRegisterMemberRequest(
     @Schema(description = "이름", example = "홍길동")
     @NotBlank(message = "이름은 필수입니다") @Size(max = 10, message = "이름은 10자 이하여야 합니다") String name,
 
-    @Schema(description = "닉네임", example = "닉넴")
-    @NotBlank(message = "닉네임은 필수입니다") @Size(min = 1, max = 5, message = "닉네임은 한글 1~5자여야 합니다") @Pattern(regexp = "^[가-힣]+$", message = "한글만 입력 가능합니다") String nickname,
+    @Schema(description = "닉네임 (한글 1~6자)", example = "닉넴")
+    @NotBlank(message = "닉네임은 필수입니다") @Size(min = 1, max = 6, message = "닉네임은 한글 1~6자여야 합니다") @Pattern(regexp = "^[가-힣]+$", message = "한글만 입력 가능합니다") String nickname,
 
     @Schema(description = "이메일 인증 토큰", example = "YOUR_JWT_TOKEN")
     @NotBlank(message = "이메일 인증 토큰은 필수입니다") String emailVerificationToken,
