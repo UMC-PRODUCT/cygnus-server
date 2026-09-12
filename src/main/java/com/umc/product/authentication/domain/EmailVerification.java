@@ -1,9 +1,11 @@
 package com.umc.product.authentication.domain;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
+import com.umc.product.authentication.domain.exception.EmailVerificationThrottledException;
 import com.umc.product.common.BaseEntity;
 
 import jakarta.persistence.Column;
@@ -38,7 +40,7 @@ public class EmailVerification extends BaseEntity {
     /**
      * 같은 이메일 / 같은 세션에 대한 연속 발송 간 최소 간격(초). 메일 폭주 방어.
      */
-    public static final long MIN_SEND_INTERVAL_SECONDS = 60;
+    public static final long MIN_SEND_INTERVAL_SECONDS = 30;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -87,7 +89,7 @@ public class EmailVerification extends BaseEntity {
     private int attemptCount;
 
     /**
-     * 마지막으로 메일을 실제로 발송한 시각. throttle 검사에 사용한다.
+     * 마지막 메일 발송 요청을 접수한 시각. 실제 발송 성공 여부와 관계없이 throttle 검사에 사용한다.
      * silent skip (예: PASSWORD_RESET 미가입) 인 경우에는 갱신하지 않는다.
      */
     @Column(name = "last_sent_at")
@@ -110,18 +112,35 @@ public class EmailVerification extends BaseEntity {
     }
 
     /**
-     * 마지막 실제 발송 시각으로부터 MIN_SEND_INTERVAL_SECONDS 가 지나지 않았다면 throttle 위반.
-     * lastSentAt 이 null 이면 (아직 실제로 발송된 적이 없음) 즉시 발송 가능하다.
+     * 마지막 발송 요청 접수 시각으로부터 MIN_SEND_INTERVAL_SECONDS 가 지나지 않았다면 throttle 위반.
+     * lastSentAt 이 null 이면 즉시 발송 요청을 접수할 수 있다.
      */
     public boolean isSendThrottled() {
-        if (this.lastSentAt == null) {
-            return false;
+        return remainingSendIntervalSeconds() > 0;
+    }
+
+    public void validateSendInterval() {
+        long remainingSeconds = remainingSendIntervalSeconds();
+        if (remainingSeconds > 0) {
+            throw new EmailVerificationThrottledException(remainingSeconds);
         }
-        return Instant.now().isBefore(this.lastSentAt.plusSeconds(MIN_SEND_INTERVAL_SECONDS));
+    }
+
+    private long remainingSendIntervalSeconds() {
+        if (this.lastSentAt == null) {
+            return 0;
+        }
+        Duration remaining = Duration.between(
+            Instant.now(), this.lastSentAt.plusSeconds(MIN_SEND_INTERVAL_SECONDS));
+        if (remaining.isNegative() || remaining.isZero()) {
+            return 0;
+        }
+        // 초 단위 응답을 내림하면 제한이 풀리기 전에 다시 요청하게 되므로 올림한다.
+        return remaining.getSeconds() + (remaining.getNano() > 0 ? 1 : 0);
     }
 
     /**
-     * 실제 메일 발송이 트리거된 시점을 기록한다. AFTER_COMMIT 이벤트 발행 직전에 호출된다.
+     * 발송 요청 접수 시점을 기록한다. 거절된 요청과 비동기 발송 결과는 이 시각을 변경하지 않는다.
      */
     public void markSent() {
         this.lastSentAt = Instant.now();
