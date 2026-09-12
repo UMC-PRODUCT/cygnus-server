@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - develop
-    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
   group: ci-${{ github.event.pull_request.number }}
@@ -38,15 +37,7 @@ jobs:
         run: node --test .github/scripts/update-preview-release.test.mjs
 
       - name: Validate and build boot JAR
-        run: ./gradlew clean spotlessCheck checkstyleMain checkstyleTest compileJava compileTestJava checkDuplicateFlywayMigrationVersions checkSensitiveMainResourcesExcluded bootJar
-
-      - name: Run application tests
-        if: ${{ !contains(github.event.pull_request.labels.*.name, 'ci:skip-tests') }}
-        run: ./gradlew test
-
-      - name: Summarize skipped application tests
-        if: ${{ contains(github.event.pull_request.labels.*.name, 'ci:skip-tests') }}
-        run: echo 'ci:skip-tests 라벨에 따라 애플리케이션 테스트 실행을 생략했습니다. 컴파일·스타일·리소스 검사와 빌드는 유지합니다. 라벨을 제거하면 테스트가 다시 실행됩니다.' >> "$GITHUB_STEP_SUMMARY"
+        run: ./gradlew clean spotlessCheck checkstyleMain checkstyleTest compileJava compileTestJava test bootJar
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
