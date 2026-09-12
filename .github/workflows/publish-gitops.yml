@@ -2,7 +2,7 @@
 # - UMC_INFRA_GITOPS_TOKEN: UMC-PRODUCT/umc-product-infra만 대상으로 하고
 #   Contents 읽기/쓰기 권한만 부여한 fine-grained PAT
 # 최초 GHCR package는 조직 관리자가 Public으로 전환해야 한다.
-# Preview는 PR 코드에 쓰기 token을 노출하지 않도록 빌드와 발행 단계를 분리하기 전까지 비활성화한다.
+# Preview는 publish-preview.yml에서 읽기 권한의 PR 빌드와 쓰기 권한의 이미지 발행을 분리한다.
 
 name: Publish GitOps Image
 
@@ -33,6 +33,10 @@ jobs:
     name: Build and publish immutable image
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Preview 발행과 같은 SHA tag를 동시에 쓰지 않는다. 환경별 배포 순서는 상위에서 유지한다.
+    concurrency:
+      group: ghcr-image-${{ github.sha }}
+      cancel-in-progress: false
     outputs:
       deploy_environment: ${{ steps.metadata.outputs.deploy_environment }}
       values_file: ${{ steps.metadata.outputs.values_file }}
