@@ -21,8 +21,16 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class SendEmailService implements SendEmailUseCase {
 
-    private static final String VERIFICATION_TEMPLATE = "email/verification";
-    private static final String SUBJECT_PREFIX = "이메일 인증 코드: ";
+    private static final String VERIFICATION_SUBJECT = "[UMC] 이메일 인증 코드";
+    // 인증메일 수신 문제를 확인하기 위해 링크와 HTML 없이 발송한다. 다른 안내 메일의 HTML은 유지한다.
+    private static final String VERIFICATION_BODY = """
+        UMC 이메일 인증 안내
+
+        인증 코드: %s
+
+        이 코드는 요청 시점부터 10분 동안 유효합니다.
+        직접 요청하지 않았다면 이 메일을 무시해 주세요.
+        """;
 
     private final TemplateEngine templateEngine;
     private final SendEmailPort sendEmailPort;
@@ -31,14 +39,14 @@ public class SendEmailService implements SendEmailUseCase {
     @Async("emailTaskExecutor")
     @Override
     public void sendVerificationEmail(SendVerificationEmailCommand command) {
-        String htmlContent = renderVerificationTemplate(command);
         // 인증 이메일은 no-reply 발신자로 고정. 향후 다른 case (예: support) 가 추가되면 분기한다.
         EmailMessage message = new EmailMessage(
             senderProperties.noReplyAddress(),
             senderProperties.noReplyDisplayName(),
             command.to(),
-            SUBJECT_PREFIX + command.verificationCode(),
-            htmlContent
+            VERIFICATION_SUBJECT,
+            VERIFICATION_BODY.formatted(command.verificationCode()),
+            false
         );
         // 인증 이메일은 발송 실패 시 사용자가 가입/로그인을 진행할 수 없는 핵심 경로다.
         // 어댑터(SesEmailAdapter)의 WARN 과 별개로, 인증 usecase 에서는 ERROR 로 남겨 운영자가 즉시 인지하도록 한다.
@@ -59,25 +67,14 @@ public class SendEmailService implements SendEmailUseCase {
             senderProperties.noReplyDisplayName(),
             command.to(),
             command.subject(),
-            htmlContent
+            htmlContent,
+            true
         );
         try {
             sendEmailPort.send(message);
         } catch (EmailDomainException e) {
             log.error("HTML 이메일 발송 실패: recipientPresent={}", hasRecipient(command.to()), e);
             throw e;
-        }
-    }
-
-    private String renderVerificationTemplate(SendVerificationEmailCommand command) {
-        try {
-            Context context = new Context();
-            context.setVariable("verificationToken", command.verificationCode());
-            return templateEngine.process(VERIFICATION_TEMPLATE, context);
-        } catch (RuntimeException e) {
-            // 예외 삼킴 방지: 비동기 컨텍스트에서도 원인 추적이 가능하도록 stacktrace 와 컨텍스트를 로그에 남긴다.
-            log.error("이메일 템플릿 렌더링 실패: recipientPresent={}", hasRecipient(command.to()), e);
-            throw new EmailDomainException(EmailErrorCode.EMAIL_TEMPLATE_RENDER_FAILED, e);
         }
     }
 

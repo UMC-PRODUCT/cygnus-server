@@ -62,11 +62,14 @@ public class SesEmailAdapter implements SendEmailPort {
 
     private SendEmailRequest buildRequest(EmailMessage message) {
         Content subject = Content.builder().charset(CHARSET_UTF_8).data(message.subject()).build();
-        Content htmlBody = Content.builder().charset(CHARSET_UTF_8).data(message.htmlBody()).build();
+        Content content = Content.builder().charset(CHARSET_UTF_8).data(message.body()).build();
+        Body body = message.html()
+            ? Body.builder().html(content).build()
+            : Body.builder().text(content).build();
 
         Message sesMessage = Message.builder()
             .subject(subject)
-            .body(Body.builder().html(htmlBody).build())
+            .body(body)
             .build();
 
         SendEmailRequest.Builder builder = SendEmailRequest.builder()

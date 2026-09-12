@@ -64,7 +64,29 @@ class SmtpEmailAdapterTest {
         assertThat(mimeMessage.getAllRecipients()).extracting(Object::toString).containsExactly(message.to());
         assertThat(mimeMessage.getSubject()).isEqualTo(message.subject());
         assertThat(mimeMessage.getContentType()).containsIgnoringCase("text/html").containsIgnoringCase("UTF-8");
-        assertThat(mimeMessage.getContent()).isEqualTo(message.htmlBody());
+        assertThat(mimeMessage.getContent()).isEqualTo(message.body());
+    }
+
+    @Test
+    @DisplayName("SMTP는 순수 텍스트 인증메일을 UTF-8 text/plain으로 발송한다")
+    void sends_utf8_plain_text_without_html() throws Exception {
+        // given
+        EmailMessage message = new EmailMessage(
+            "sender@example.org", "UMC", "recipient@example.org", "[UMC] 이메일 인증 코드",
+            "인증 코드: 123456\n요청 시점부터 10분 동안 유효합니다.", false
+        );
+
+        // when
+        sut.send(message);
+        mimeMessage.saveChanges();
+
+        // then
+        then(mailSender).should().send(mimeMessage);
+        assertThat(mimeMessage.getContentType()).containsIgnoringCase("text/plain").containsIgnoringCase("UTF-8")
+            .doesNotContain("text/html", "multipart");
+        assertThat(mimeMessage.getContent()).isEqualTo(message.body());
+        assertThat(mimeMessage.getAllRecipients()).extracting(Object::toString).containsExactly(message.to());
+        assertThat(mimeMessage.getSubject()).isEqualTo(message.subject());
     }
 
     @Test
@@ -99,7 +121,7 @@ class SmtpEmailAdapterTest {
 
     private EmailMessage createMessage() {
         return new EmailMessage(
-            "sender@example.org", "윰씨", "recipient@example.org", "이메일 인증 코드", "<html>인증 안내</html>"
+            "sender@example.org", "윰씨", "recipient@example.org", "이메일 인증 코드", "<html>인증 안내</html>", true
         );
     }
 }
