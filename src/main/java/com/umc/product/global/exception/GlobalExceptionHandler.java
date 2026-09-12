@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.umc.product.authentication.domain.exception.EmailVerificationThrottledException;
 import com.umc.product.form.domain.FormResponse;
 import com.umc.product.form.domain.exception.DraftSchemaMismatchException;
 import com.umc.product.form.domain.exception.FormErrorCode;
@@ -240,10 +241,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             e.getMessage(), e);
 
         ApiResponse<Object> body = BusinessExceptionResponseResolver.toApiResponse(e);
+        HttpHeaders headers = HttpHeaders.EMPTY;
+        if (e instanceof EmailVerificationThrottledException throttled) {
+            headers = new HttpHeaders();
+            headers.set(HttpHeaders.RETRY_AFTER, Long.toString(throttled.getRetryAfterSeconds()));
+        }
         return super.handleExceptionInternal(
             e,
             body,
-            HttpHeaders.EMPTY,
+            headers,
             e.getBaseCode().getHttpStatus(),
             request
         );
