@@ -33,9 +33,20 @@
 - Adapter: `MatchingRoundDeadlineScheduler`
 - Handler: `MatchingRoundDeadlineHandler`
 - 활성 조건: `scheduler.matching-round-deadline.enabled=true` 또는 property 미설정
+- 비활성 시 대체: `NoOpMatchingRoundDeadlineScheduler`
 - 전용 pool size: 2
 
 이 풀은 project 자동 선발 발화를 위해서만 사용한다. 일반 batch, polling, notification 작업을 이 풀에 올리면 안 된다.
+
+`ScheduleMatchingRoundDeadlinePort`는 `ProjectMatchingRoundCommandService`의 생성자 필수 의존이다. 스케줄러를 끌 때 실제 adapter만 없애면 주입 대상이 사라져 컨텍스트 기동이 실패하므로, `enabled=false`에서는 `NoOpMatchingRoundDeadlineScheduler`가 대신 등록된다. 두 구현의 조건은 배타적이며, 끈 상태에서 자동 선발은 운영진 수동 호출로만 실행된다.
+
+### 테스트 프로필
+
+`@Scheduled` 작업은 `SchedulingConfig`가 `@Profile("!test")`라 test 프로필에서 잠든다. 매칭 데드라인 스케줄러는 `@ConditionalOnProperty`로만 제어되므로 별도로 `src/test/resources/application-test.yml`에서 `scheduler.matching-round-deadline.enabled=false`로 끈다.
+
+끄지 않으면 테스트 fixture의 `decisionDeadline`이 모두 과거 시각이라 등록 즉시 발화하고, `matching-deadline-` 스레드의 자동 선발 트랜잭션이 `@DatabaseIsolation`의 `TRUNCATE`와 겹친다. 락 경합이 나거나 TRUNCATE 이후 커밋된 행이 다음 테스트로 새어 나가, 단독 실행은 통과하고 전체 실행에서만 깨지는 간헐 실패가 된다.
+
+이 격리는 `BackgroundSchedulerIsolationTest`가 고정한다. 특정 테스트에서 스케줄러 동작을 검증해야 하면 전역으로 켜지 말고 `@TestPropertySource`로 그 테스트에서만 켜고, 발화한 task가 끝난 뒤 테스트를 종료한다.
 
 ## Webhook 알림
 
