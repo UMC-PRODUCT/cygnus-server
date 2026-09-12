@@ -12,6 +12,7 @@ public record EmailMessage(
     String fromDisplayName,
     String to,
     String subject,
-    String htmlBody
+    String body,
+    boolean html
 ) {
 }

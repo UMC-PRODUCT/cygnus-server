@@ -52,7 +52,7 @@ public class SmtpEmailAdapter implements SendEmailPort {
             helper.setFrom(message.fromAddress(), message.fromDisplayName());
             helper.setTo(message.to());
             helper.setSubject(message.subject());
-            helper.setText(message.htmlBody(), true);
+            helper.setText(message.body(), message.html());
             ExternalApiCallLogger.measure("SMTP", "SEND_EMAIL", () -> mailSender.send(mimeMessage));
         } catch (MessagingException | UnsupportedEncodingException | RuntimeException e) {
             recordFailure(e, (System.nanoTime() - startNanos) / 1_000_000L);
