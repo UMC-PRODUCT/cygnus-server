@@ -25,6 +25,7 @@ import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageReadStatusInfo;
 import com.umc.product.chat.application.port.in.query.dto.CheckChatMessageReadQuery;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessageQuery;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesForAuthorizedCallerQuery;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
@@ -91,6 +92,27 @@ class ChatMessageQueryServiceTest {
             .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
 
         then(loadChatMessagePort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("getMessages(GetChatMessagesQuery) 경로는 여전히 membership을 검사한다(회귀 없음)")
+    void getMessages_stillVerifiesMembership_regression() {
+        sut.getMessages(new GetChatMessagesQuery(1L, 10L, null, 2));
+
+        then(chatRoomAccessPolicy).should().verifyMember(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("권한위임형 조회(getMessages(GetChatMessagesForAuthorizedCallerQuery))는 membership 검사를 하지 않는다")
+    void getMessagesForAuthorizedCaller_skipsMembershipCheck() {
+        given(loadChatMessagePort.listByRoomId(eq(1L), eq(null), anyInt()))
+            .willReturn(List.of(message(30L, 1L), message(20L, 1L)));
+
+        ChatMessageCursorResult result =
+            sut.getMessages(new GetChatMessagesForAuthorizedCallerQuery(1L, null, 2));
+
+        assertThat(result.content()).hasSize(2);
+        then(chatRoomAccessPolicy).shouldHaveNoInteractions();
     }
 
     @Test

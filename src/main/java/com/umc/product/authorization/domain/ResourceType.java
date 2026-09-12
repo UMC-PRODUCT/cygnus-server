@@ -112,7 +112,13 @@ public enum ResourceType {
     // 프로젝트 지원서 관련
     PROJECT_APPLICATION("project_application", "프로젝트 지원서",
         Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT,
-            PermissionType.DELETE, PermissionType.APPROVE))
+            PermissionType.DELETE, PermissionType.APPROVE)),
+
+    // 문의사항 관련
+    INQUIRY("inquiry", "문의사항",
+        Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
+    INQUIRY_MESSAGE("inquiry_message", "문의사항 메시지",
+        Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.DELETE)),
     ;
 
     private final String code;

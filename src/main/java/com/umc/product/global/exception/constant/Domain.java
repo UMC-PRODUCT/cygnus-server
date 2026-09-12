@@ -27,6 +27,7 @@ public enum Domain {
     PROJECT,
     LLM,
     ANALYTICS,
+    INQUIRY,
     CHAT,
     MAINTENANCE,
     FEEDBACK,
