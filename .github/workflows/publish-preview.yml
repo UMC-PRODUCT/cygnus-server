@@ -1,0 +1,318 @@
+# 기본 브랜치의 workflow만 신뢰한다. PR 코드는 읽기 권한의 별도 runner에서 빌드하고,
+# packages:write runner는 완성된 Docker archive를 읽어 발행만 한다.
+# GHCR package는 Public이어야 한다. infra PAT는 마지막 GitOps 갱신 job에만 전달하고,
+# 이미지 발행과 익명 pull 검증에 성공한 SHA·digest만 Argo에 전달한다.
+name: Publish Preview Image
+
+on:
+  pull_request_target:
+    branches:
+      - develop
+    types: [opened, reopened, synchronize, labeled, unlabeled, edited, closed]
+
+# PR 종료·preview 제거도 같은 group을 취소한다. 다른 라벨 변경 때 preview가 남아 있으면
+# 새 빌드를 실행해 이전 실행만 취소되고 발행이 누락되는 일을 막는다.
+concurrency:
+  group: publish-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+# 명시적인 캐시 설정뿐 아니라 runtime token의 암묵적 캐시 읽기·쓰기도 차단한다.
+cache-mode: none
+
+env:
+  IMAGE: ghcr.io/umc-product/umc-product-server
+  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+jobs:
+  build:
+    name: Validate and export trusted PR image
+    if: >-
+      github.repository == 'UMC-PRODUCT/umc-product-server' &&
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.base.ref == 'develop' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
+      contains(github.event.pull_request.labels.*.name, 'preview')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout exact trusted PR head
+        uses: actions/checkout@v4
+        with:
+          repository: UMC-PRODUCT/umc-product-server
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up JDK 21 without shared cache
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: corretto
+
+      - name: Validate and build boot JAR
+        run: ./gradlew clean spotlessCheck checkstyleMain checkstyleTest compileJava compileTestJava test bootJar
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          cache-binary: false
+
+      - name: Export container without publishing
+        uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
+        with:
+          context: .
+          file: docker/app/dockerfile
+          push: false
+          platforms: linux/amd64
+          tags: local/umc-product-server:preview-${{ github.event.pull_request.head.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/UMC-PRODUCT/umc-product-server
+            org.opencontainers.image.revision=${{ github.event.pull_request.head.sha }}
+          outputs: type=docker,dest=${{ runner.temp }}/preview-image.tar
+
+      - name: Upload image archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: preview-image-${{ github.run_id }}
+          path: ${{ runner.temp }}/preview-image.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: true
+
+  publish:
+    name: Publish immutable preview image
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # PR끼리뿐 아니라 main/develop 발행과도 같은 SHA 이미지 쓰기를 직렬화한다.
+    concurrency:
+      group: ghcr-image-${{ github.event.pull_request.head.sha }}
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      packages: write
+      pull-requests: read
+    outputs:
+      eligible: ${{ steps.ready.outputs.eligible }}
+      head_sha: ${{ steps.ready.outputs.head_sha }}
+      image_tag: ${{ steps.ready.outputs.image_tag }}
+      image_digest: ${{ steps.ready.outputs.image_digest }}
+
+    steps:
+      # PR checkout·로컬 action·Gradle·Docker build/run을 이 job에 추가하지 않는다.
+      # tag와 archive 이름은 build의 output이나 archive metadata에서 받아오지 않는다.
+      - name: Resolve tag from trusted event
+        run: |
+          set -euo pipefail
+          if [[ ! "$HEAD_SHA" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "::error::Invalid PR head SHA."
+            exit 1
+          fi
+          echo "IMAGE_TAG=${HEAD_SHA:0:12}" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          cache-binary: false
+
+      - name: Download this run's image archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: preview-image-${{ github.run_id }}
+          path: ${{ runner.temp }}/preview-image
+
+      - name: Load and inspect image without executing it
+        run: |
+          set -euo pipefail
+          docker load --input "${RUNNER_TEMP}/preview-image/preview-image.tar"
+          local_image="local/umc-product-server:preview-${HEAD_SHA}"
+          revision="$(docker image inspect "$local_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+          platform="$(docker image inspect "$local_image" --format '{{.Os}}/{{.Architecture}}')"
+          if [[ "$revision" != "$HEAD_SHA" || "$platform" != "linux/amd64" ]]; then
+            echo "::error::Archive does not match the expected PR head and platform."
+            exit 1
+          fi
+          docker tag "$local_image" "${IMAGE}:${IMAGE_TAG}"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Recheck current PR before publishing
+        id: current
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: 'UMC-PRODUCT',
+              repo: 'umc-product-server',
+              pull_number: context.payload.pull_request.number,
+            });
+            const eligible =
+              pr.state === 'open' &&
+              pr.base.repo.full_name === 'UMC-PRODUCT/umc-product-server' &&
+              pr.base.ref === 'develop' &&
+              pr.head.repo?.full_name === 'UMC-PRODUCT/umc-product-server' &&
+              ['MEMBER', 'OWNER', 'COLLABORATOR'].includes(pr.author_association) &&
+              pr.labels.some(label => label.name === 'preview') &&
+              pr.head.sha === context.payload.pull_request.head.sha;
+            core.setOutput('eligible', String(eligible));
+            if (!eligible) core.notice('PR is no longer eligible or its head changed; publishing skipped.');
+
+      - name: Publish only a missing immutable tag
+        if: steps.current.outputs.eligible == 'true'
+        run: |
+          set -euo pipefail
+          lookup_error="${RUNNER_TEMP}/preview-image-lookup.err"
+          if manifest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' 2>"$lookup_error")"; then
+            # 재실행은 이미 발행한 tag를 덮어쓰지 않는다.
+            registry_digest="$(jq -er '.digest' <<< "$manifest")"
+          else
+            # 인증·네트워크 오류를 tag 부재로 오인해 기존 이미지를 덮어쓰지 않는다.
+            lookup_message="$(<"$lookup_error")"
+            if [[ "$lookup_message" != *"${IMAGE}:${IMAGE_TAG}: not found"* ]]; then
+              echo "::error::Cannot establish whether the immutable tag exists."
+              exit 1
+            fi
+            docker push "${IMAGE}:${IMAGE_TAG}"
+            registry_digest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' | jq -er '.digest')"
+          fi
+          if [[ ! "$registry_digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::Registry returned an invalid image digest."
+            exit 1
+          fi
+          echo "IMAGE_DIGEST=$registry_digest" >> "$GITHUB_ENV"
+
+      - name: Verify public anonymous image pull
+        id: ready
+        if: steps.current.outputs.eligible == 'true'
+        run: |
+          set -euo pipefail
+          docker logout ghcr.io
+          if ! anonymous_digest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' 2>/dev/null | jq -er '.digest')"; then
+            echo "::error::GHCR package is not publicly pullable. Make the package Public, then rerun all jobs."
+            exit 1
+          fi
+          if [[ "$anonymous_digest" != "$IMAGE_DIGEST" ]]; then
+            echo "::error::Anonymous GHCR lookup returned a different digest."
+            exit 1
+          fi
+          echo "Preview image ready: ${IMAGE}:${IMAGE_TAG}@${IMAGE_DIGEST}"
+          echo "eligible=true" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "image_digest=$IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
+
+  update-infra:
+    name: Promote ready Preview image in infrastructure
+    needs: publish
+    if: needs.publish.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # dev/prod의 infra main 갱신과 같은 lock을 사용한다. force push는 하지 않는다.
+    concurrency:
+      group: umc-product-infra-main-update
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      # PR head의 script/action은 절대 실행하지 않는다. 이 실행을 정의한 기본 브랜치
+      # workflow의 정확한 commit에서 updater만 읽는다. PR artifact도 이 job에 전달하지 않는다.
+      - name: Checkout trusted default-branch automation
+        uses: actions/checkout@v4
+        with:
+          repository: UMC-PRODUCT/umc-product-server
+          ref: ${{ github.workflow_sha }}
+          path: backend
+          persist-credentials: false
+
+      - name: Checkout infrastructure main
+        uses: actions/checkout@v4
+        with:
+          repository: UMC-PRODUCT/umc-product-infra
+          ref: main
+          token: ${{ secrets.UMC_INFRA_GITOPS_TOKEN }}
+          path: infra
+
+      - name: Record the successfully published immutable release
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          READY_HEAD_SHA: ${{ needs.publish.outputs.head_sha }}
+          READY_IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+          READY_IMAGE_DIGEST: ${{ needs.publish.outputs.image_digest }}
+        run: |
+          set -euo pipefail
+          git -C infra pull --ff-only origin main
+          node backend/.github/scripts/update-preview-release.mjs \
+            infra "$PR_NUMBER" "$READY_HEAD_SHA" "$READY_IMAGE_TAG" "$READY_IMAGE_DIGEST"
+
+      - name: Commit only the selected Preview release
+        id: commit
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          READY_IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          marker="argocd/preview-releases/pr-${PR_NUMBER}.json"
+          git add -- "$marker"
+          changed_files="$(git diff --cached --name-only)"
+          if [[ -z "$changed_files" ]]; then
+            echo "Preview already references this successfully published image."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$changed_files" != "$marker" ]]; then
+            echo "::error::Automation staged a file outside the selected Preview release."
+            exit 1
+          fi
+          git diff --cached --check
+          git config user.name "umc-product-deploy-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(preview): deploy PR ${PR_NUMBER} ${READY_IMAGE_TAG}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Recheck current PR immediately before infrastructure push
+        if: steps.commit.outputs.changed == 'true'
+        id: current
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          READY_HEAD_SHA: ${{ needs.publish.outputs.head_sha }}
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: 'UMC-PRODUCT',
+              repo: 'umc-product-server',
+              pull_number: context.payload.pull_request.number,
+            });
+            const eligible =
+              pr.state === 'open' &&
+              pr.base.repo.full_name === 'UMC-PRODUCT/umc-product-server' &&
+              pr.base.ref === 'develop' &&
+              pr.head.repo?.full_name === 'UMC-PRODUCT/umc-product-server' &&
+              ['MEMBER', 'OWNER', 'COLLABORATOR'].includes(pr.author_association) &&
+              pr.labels.some(label => label.name === 'preview') &&
+              pr.head.sha === process.env.READY_HEAD_SHA &&
+              pr.head.sha === context.payload.pull_request.head.sha;
+            core.setOutput('eligible', String(eligible));
+            if (!eligible) core.notice('PR closed, label removed, or head changed; infrastructure push skipped.');
+
+      - name: Push ready release without overwriting concurrent changes
+        if: steps.commit.outputs.changed == 'true' && steps.current.outputs.eligible == 'true'
+        working-directory: infra
+        run: git push origin HEAD:main

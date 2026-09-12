@@ -137,10 +137,7 @@ public class AuthenticationService implements ManageAuthenticationUseCase {
         // 메일 폭주 위험이 없으므로 throttle 대상이 아니다.
         if (shouldSendEmail) {
             loadEmailVerificationPort.findLatestSentByEmail(email)
-                .filter(EmailVerification::isSendThrottled)
-                .ifPresent(latest -> {
-                    throw new AuthenticationDomainException(AuthenticationErrorCode.EMAIL_VERIFICATION_THROTTLED);
-                });
+                .ifPresent(EmailVerification::validateSendInterval);
         }
 
         String code = generateRandomCode();
@@ -168,9 +165,7 @@ public class AuthenticationService implements ManageAuthenticationUseCase {
     public void resendEmailVerification(Long sessionId) {
         EmailVerification emailVerification = loadEmailVerificationPort.getById(sessionId);
 
-        if (emailVerification.isSendThrottled()) {
-            throw new AuthenticationDomainException(AuthenticationErrorCode.EMAIL_VERIFICATION_THROTTLED);
-        }
+        emailVerification.validateSendInterval();
 
         String newCode = generateRandomCode();
         String newToken = UUID.randomUUID().toString();
