@@ -1,6 +1,7 @@
 # 기본 브랜치의 workflow만 신뢰한다. PR 코드는 읽기 권한의 별도 runner에서 빌드하고,
 # packages:write runner는 완성된 Docker archive를 읽어 발행만 한다.
-# GHCR package는 Public이어야 하며 별도 저장소 Secret이나 infra PAT는 사용하지 않는다.
+# GHCR package는 Public이어야 한다. infra PAT는 마지막 GitOps 갱신 job에만 전달하고,
+# 이미지 발행과 익명 pull 검증에 성공한 SHA·digest만 Argo에 전달한다.
 name: Publish Preview Image
 
 on:
@@ -96,9 +97,15 @@ jobs:
     concurrency:
       group: ghcr-image-${{ github.event.pull_request.head.sha }}
       cancel-in-progress: false
+      queue: max
     permissions:
       packages: write
       pull-requests: read
+    outputs:
+      eligible: ${{ steps.ready.outputs.eligible }}
+      head_sha: ${{ steps.ready.outputs.head_sha }}
+      image_tag: ${{ steps.ready.outputs.image_tag }}
+      image_digest: ${{ steps.ready.outputs.image_digest }}
 
     steps:
       # PR checkout·로컬 action·Gradle·Docker build/run을 이 job에 추가하지 않는다.
@@ -189,6 +196,7 @@ jobs:
           echo "IMAGE_DIGEST=$registry_digest" >> "$GITHUB_ENV"
 
       - name: Verify public anonymous image pull
+        id: ready
         if: steps.current.outputs.eligible == 'true'
         run: |
           set -euo pipefail
@@ -202,3 +210,109 @@ jobs:
             exit 1
           fi
           echo "Preview image ready: ${IMAGE}:${IMAGE_TAG}@${IMAGE_DIGEST}"
+          echo "eligible=true" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "image_digest=$IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
+
+  update-infra:
+    name: Promote ready Preview image in infrastructure
+    needs: publish
+    if: needs.publish.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # dev/prod의 infra main 갱신과 같은 lock을 사용한다. force push는 하지 않는다.
+    concurrency:
+      group: umc-product-infra-main-update
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      # PR head의 script/action은 절대 실행하지 않는다. 이 실행을 정의한 기본 브랜치
+      # workflow의 정확한 commit에서 updater만 읽는다. PR artifact도 이 job에 전달하지 않는다.
+      - name: Checkout trusted default-branch automation
+        uses: actions/checkout@v4
+        with:
+          repository: UMC-PRODUCT/umc-product-server
+          ref: ${{ github.workflow_sha }}
+          path: backend
+          persist-credentials: false
+
+      - name: Checkout infrastructure main
+        uses: actions/checkout@v4
+        with:
+          repository: UMC-PRODUCT/umc-product-infra
+          ref: main
+          token: ${{ secrets.UMC_INFRA_GITOPS_TOKEN }}
+          path: infra
+
+      - name: Record the successfully published immutable release
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          READY_HEAD_SHA: ${{ needs.publish.outputs.head_sha }}
+          READY_IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+          READY_IMAGE_DIGEST: ${{ needs.publish.outputs.image_digest }}
+        run: |
+          set -euo pipefail
+          git -C infra pull --ff-only origin main
+          node backend/.github/scripts/update-preview-release.mjs \
+            infra "$PR_NUMBER" "$READY_HEAD_SHA" "$READY_IMAGE_TAG" "$READY_IMAGE_DIGEST"
+
+      - name: Commit only the selected Preview release
+        id: commit
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          READY_IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          marker="argocd/preview-releases/pr-${PR_NUMBER}.json"
+          git add -- "$marker"
+          changed_files="$(git diff --cached --name-only)"
+          if [[ -z "$changed_files" ]]; then
+            echo "Preview already references this successfully published image."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$changed_files" != "$marker" ]]; then
+            echo "::error::Automation staged a file outside the selected Preview release."
+            exit 1
+          fi
+          git diff --cached --check
+          git config user.name "umc-product-deploy-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(preview): deploy PR ${PR_NUMBER} ${READY_IMAGE_TAG}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Recheck current PR immediately before infrastructure push
+        if: steps.commit.outputs.changed == 'true'
+        id: current
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          READY_HEAD_SHA: ${{ needs.publish.outputs.head_sha }}
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: 'UMC-PRODUCT',
+              repo: 'umc-product-server',
+              pull_number: context.payload.pull_request.number,
+            });
+            const eligible =
+              pr.state === 'open' &&
+              pr.base.repo.full_name === 'UMC-PRODUCT/umc-product-server' &&
+              pr.base.ref === 'develop' &&
+              pr.head.repo?.full_name === 'UMC-PRODUCT/umc-product-server' &&
+              ['MEMBER', 'OWNER', 'COLLABORATOR'].includes(pr.author_association) &&
+              pr.labels.some(label => label.name === 'preview') &&
+              pr.head.sha === process.env.READY_HEAD_SHA &&
+              pr.head.sha === context.payload.pull_request.head.sha;
+            core.setOutput('eligible', String(eligible));
+            if (!eligible) core.notice('PR closed, label removed, or head changed; infrastructure push skipped.');
+
+      - name: Push ready release without overwriting concurrent changes
+        if: steps.commit.outputs.changed == 'true' && steps.current.outputs.eligible == 'true'
+        working-directory: infra
+        run: git push origin HEAD:main
